@@ -1,4 +1,5 @@
 
+// Always use import {GoogleGenAI} from "@google/genai";
 import { GoogleGenAI, Type } from "@google/genai";
 import { Employee, Task, Vacation, AIPlanningResponse } from "../types";
 
@@ -7,6 +8,7 @@ export const getIntelligentAssignments = async (
   tasks: Task[],
   vacations: Vacation[]
 ): Promise<AIPlanningResponse> => {
+  // Always initialize with apiKey in a named parameter
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const prompt = `
@@ -28,8 +30,10 @@ export const getIntelligentAssignments = async (
     Réponds uniquement au format JSON.
   `;
 
+  // Always use ai.models.generateContent directly
+  // Using gemini-3-pro-preview for complex reasoning task (planning optimization)
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gemini-3-pro-preview",
     contents: prompt,
     config: {
       responseMimeType: "application/json",
@@ -55,7 +59,9 @@ export const getIntelligentAssignments = async (
   });
 
   try {
-    return JSON.parse(response.text.trim()) as AIPlanningResponse;
+    // Access the .text property directly, it's not a method
+    const text = response.text || "{}";
+    return JSON.parse(text.trim()) as AIPlanningResponse;
   } catch (error) {
     console.error("Failed to parse Gemini response:", error);
     return { assignments: [] };

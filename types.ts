@@ -2,7 +2,9 @@
 export enum Role {
   MANAGER = 'manager',
   TRAINER = 'formateur/formatrice',
-  EQUIPPIER = 'équipier'
+  EQUIPPIER = 'équipier',
+  MCCAFE = 'Mc Café',
+  HOTE = 'Hôte d\'accueil'
 }
 
 export type SkillLevel = 'Expert' | 'Formé' | 'Intermédiaire' | 'Débutant' | 'Non Formé';
@@ -42,12 +44,63 @@ export interface EmployeeCert {
   expiryDate?: string;
   status: 'Complété' | 'À faire' | 'Expiré';
   documentUrl?: string;
+  isExternal?: boolean; // Indique si le certificat a été importé manuellement
+  externalReference?: string;
+  // Champs pour la validation interactive interne
+  score?: number;
+  observations?: string;
+  trainerSignature?: string; // base64 image
+  employeeSignature?: string; // base64 image
+  evaluationDetails?: Record<string, 'valid' | 'fail' | null>;
 }
 
 export interface GlobalCertConfig {
   name: string;
   isMandatory: boolean;
   validityMonths: number;
+  templateUrl?: string; // Lien vers le PDF vierge / modèle
+}
+
+export interface ContractConfig {
+  id: string;
+  name: string;
+  weeklyHours: number;
+}
+
+export interface EventLog {
+  id: string;
+  date: string;
+  type: 'Retard' | 'Discipline' | 'Félicitation' | 'Autre';
+  comment: string;
+  duration?: number; // Durée en minutes pour les retards
+}
+
+export interface TrainingFeedback {
+  id: string;
+  date: string;
+  trainerName: string;
+  moduleName: string;
+  comment: string;
+  rating: number; // 1-5
+}
+
+export interface ActivityLog {
+  id: string;
+  timestamp: string;
+  user: string;
+  action: string;
+  details: string;
+  category: 'EQUIPE' | 'SOC' | 'FORMATION' | 'SYSTEM' | 'RETARD';
+}
+
+export interface Inquiry {
+  id?: string;
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  status?: 'new' | 'read' | 'resolved';
+  created_at?: string;
 }
 
 export interface Employee extends User {
@@ -55,7 +108,17 @@ export interface Employee extends User {
   certifications: EmployeeCert[];
   department: string;
   isArchived?: boolean;
+  archivedDate?: string;
+  archivedReason?: string;
+  isDeleted?: boolean;
+  deletedDate?: string;
   availability: DayAvailability[];
+  entryDate?: string;
+  contractEndDate?: string; // Date de fin de contrat
+  phoneNumber?: string;
+  contractType?: string; // This will link to the name in ContractConfig
+  eventLogs?: EventLog[];
+  feedbacks?: TrainingFeedback[];
 }
 
 export interface Task {
