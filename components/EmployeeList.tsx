@@ -5,7 +5,7 @@ import {
   GraduationCap, Mail, Phone, Settings2, Undo2, 
   Download, UserCircle, Clock, Calendar, ShieldCheck, 
   CheckCircle2, AlertCircle, FileText, Trash, Plus, Briefcase, Tag,
-  Upload, Eye, AlertTriangle, FileDown, FileUp
+  Upload, Eye, AlertTriangle, FileDown, FileUp, Filter, XCircle
 } from 'lucide-react';
 import { Employee, Role, GlobalCertConfig, SkillLevel, ContractConfig, ActivityLog, Skill, EmployeeCert } from '../types';
 import ReportsPortal from './ReportsPortal';
@@ -19,6 +19,15 @@ const LEVEL_CONFIG: Record<SkillLevel, { text: string; bg: string; bar: string; 
   'Intermédiaire': { text: 'text-amber-700', bg: 'bg-[#ffbc0d]/10', bar: 'bg-[#ffbc0d]', progress: 50 },
   'Débutant': { text: 'text-orange-700', bg: 'bg-[#fdba74]/10', bar: 'bg-[#fdba74]', progress: 25 },
   'Non Formé': { text: 'text-slate-400', bg: 'bg-slate-100', bar: 'bg-slate-200', progress: 5 },
+};
+
+// Ordre de priorité des rôles pour le tri
+const ROLE_PRIORITY: Record<string, number> = {
+  [Role.MANAGER]: 0,
+  [Role.TRAINER]: 1,
+  [Role.HOTE]: 2,
+  [Role.MCCAFE]: 3,
+  [Role.EQUIPPIER]: 4,
 };
 
 const formatPhone = (value: string) => {
@@ -76,6 +85,8 @@ const EmployeeList: React.FC<EmployeeListProps> = ({
   availableSkills, availableCertifications, availableContracts, initialSelectedId, onClearSelection, onAddActivity 
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [roleFilter, setRoleFilter] = useState<string>('ALL');
+  const [contractFilter, setContractFilter] = useState<string>('ALL');
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<Employee | null>(null);
@@ -85,6 +96,7 @@ const EmployeeList: React.FC<EmployeeListProps> = ({
   const [archiveReason, setArchiveReason] = useState('');
   const [fullScreenReport, setFullScreenReport] = useState<'none' | 'soc' | 'certs'>('none');
   const [mobileView, setMobileView] = useState<'list' | 'profile'>('list');
+  const [showFilters, setShowFilters] = useState(false);
   
   // Modal for Legal Doc Upload
   const [uploadCertModal, setUploadCertModal] = useState<{certName: string, isMandatory: boolean} | null>(null);
@@ -132,13 +144,11 @@ const EmployeeList: React.FC<EmployeeListProps> = ({
 
   const handleCertToggle = (certName: string, isMandatory: boolean) => {
     if (isMandatory) {
-      // Mandatory certs can now be modified anytime (even without edit mode)
       setUploadCertModal({ certName, isMandatory });
       setTempCertDate(new Date().toISOString().split('T')[0]);
       setTempCertFile(null);
       setTempFileName(null);
     } else {
-      // Internal trainings still require edit mode to avoid accidental clicks
       if (!isEditing || !editData) return;
       const certs = [...(editData.certifications || [])];
       const idx = certs.findIndex(c => c.name === certName);
@@ -170,14 +180,12 @@ const EmployeeList: React.FC<EmployeeListProps> = ({
     };
 
     if (isEditing && editData) {
-      // If we are in edit mode, update the temporary edit buffer
       const certs = [...(editData.certifications || [])];
       const idx = certs.findIndex(c => c.name === uploadCertModal.certName);
       if (idx >= 0) certs[idx] = newCert;
       else certs.push(newCert);
       setEditData({ ...editData, certifications: certs });
     } else {
-      // If we are NOT in edit mode, update and save immediately
       const certs = [...(selectedEmployee.certifications || [])];
       const idx = certs.findIndex(c => c.name === uploadCertModal.certName);
       if (idx >= 0) certs[idx] = newCert;
@@ -234,9 +242,28 @@ const EmployeeList: React.FC<EmployeeListProps> = ({
     setMobileView('profile');
   };
 
-  const filteredEmployees = employees.filter(emp => 
-    emp.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filtrage et Tri hiérarchique
+  const filteredEmployees = employees
+    .filter(emp => {
+      const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesRole = roleFilter === 'ALL' || emp.role === roleFilter;
+      const matchesContract = contractFilter === 'ALL' || emp.contractType === contractFilter;
+      return matchesSearch && matchesRole && matchesContract;
+    })
+    .sort((a, b) => {
+      // 1. Priorité par Rôle (Manager > Formateur > Hôte > Mc Café > Équipier)
+      const priorityA = ROLE_PRIORITY[a.role] ?? 99;
+      const priorityB = ROLE_PRIORITY[b.role] ?? 99;
+      
+      if (priorityA !== priorityB) {
+        return priorityA - priorityB;
+      }
+      
+      // 2. Tri Alphabétique à rôle égal
+      return a.name.localeCompare(b.name);
+    });
+
+  const activeFiltersCount = (roleFilter !== 'ALL' ? 1 : 0) + (contractFilter !== 'ALL' ? 1 : 0);
 
   return (
     <div className="h-full flex flex-col space-y-4 md:space-y-6 animate-in text-slate-900 overflow-hidden">
@@ -249,7 +276,9 @@ const EmployeeList: React.FC<EmployeeListProps> = ({
         <div className="shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-1">
           <div className={`${mobileView === 'profile' ? 'hidden sm:block' : 'block'}`}>
             <h1 className="text-2xl md:text-3xl font-black text-slate-900 uppercase tracking-tighter leading-none">Équipe Active</h1>
-            <p className="hidden sm:block text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">{employees.length} Actifs • Restaurant #0437</p>
+            <p className="hidden sm:block text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">
+              {filteredEmployees.length} {filteredEmployees.length !== employees.length ? `trouvés sur ${employees.length}` : 'Actifs'} • Restaurant #0437
+            </p>
           </div>
           
           <div className={`grid grid-cols-3 sm:flex items-center gap-2 sm:gap-3 ${mobileView === 'profile' ? 'hidden sm:grid' : 'grid'}`}>
@@ -275,21 +304,79 @@ const EmployeeList: React.FC<EmployeeListProps> = ({
           <TrashList trashEmployees={trashEmployees} onRestore={onRestoreEmployee} onPermanentDelete={onPermanentDelete} onEmptyTrash={onEmptyTrash} onBack={() => setIsTrashView(false)} />
         ) : (
           <>
-            <aside className={`w-full lg:w-[300px] flex flex-col gap-4 shrink-0 overflow-hidden ${mobileView === 'profile' ? 'hidden lg:flex' : 'flex'}`}>
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
-                <input type="text" placeholder="Chercher un équipier..." className="w-full pl-12 pr-4 py-4 bg-white border border-slate-200 rounded-xl sm:rounded-2xl text-[11px] font-bold outline-none focus:border-[#264f36] shadow-sm" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+            <aside className={`w-full lg:w-[320px] flex flex-col gap-4 shrink-0 overflow-hidden ${mobileView === 'profile' ? 'hidden lg:flex' : 'flex'}`}>
+              <div className="space-y-3">
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+                    <input type="text" placeholder="Chercher..." className="w-full pl-12 pr-4 py-4 bg-white border border-slate-200 rounded-2xl text-[11px] font-bold outline-none focus:border-[#264f36] shadow-sm" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                  </div>
+                  <button 
+                    onClick={() => setShowFilters(!showFilters)}
+                    className={`p-4 rounded-2xl border transition-all relative ${showFilters || activeFiltersCount > 0 ? 'bg-[#264f36] text-white border-[#264f36] shadow-lg' : 'bg-white text-slate-400 border-slate-200 shadow-sm'}`}
+                  >
+                    <Filter size={20} />
+                    {activeFiltersCount > 0 && (
+                      <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[9px] font-black flex items-center justify-center rounded-full border-2 border-white">{activeFiltersCount}</span>
+                    )}
+                  </button>
+                </div>
+
+                {/* FILTER PANEL */}
+                {showFilters && (
+                  <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xl animate-in slide-in-from-top-2 duration-300 space-y-5">
+                    <div className="flex items-center justify-between">
+                       <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Filtres Actifs</h3>
+                       <button onClick={() => { setRoleFilter('ALL'); setContractFilter('ALL'); setShowFilters(false); }} className="text-[8px] font-black text-red-500 uppercase tracking-widest hover:underline flex items-center gap-1">
+                          <XCircle size={12} /> Reset
+                       </button>
+                    </div>
+
+                    <div className="space-y-4">
+                      {/* ROLE FILTER */}
+                      <div className="space-y-2">
+                         <label className="text-[8px] font-black text-slate-300 uppercase tracking-widest ml-1">Par Rôle</label>
+                         <div className="flex flex-wrap gap-2">
+                            <button onClick={() => setRoleFilter('ALL')} className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest border transition-all ${roleFilter === 'ALL' ? 'bg-[#264f36] text-white border-[#264f36]' : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-slate-100'}`}>Tous</button>
+                            {Object.values(Role).map(role => (
+                               <button key={role} onClick={() => setRoleFilter(role)} className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest border transition-all ${roleFilter === role ? 'bg-[#264f36] text-white border-[#264f36]' : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-slate-100'}`}>{role}</button>
+                            ))}
+                         </div>
+                      </div>
+
+                      {/* CONTRACT FILTER */}
+                      <div className="space-y-2">
+                         <label className="text-[8px] font-black text-slate-300 uppercase tracking-widest ml-1">Par Contrat</label>
+                         <div className="flex flex-wrap gap-2">
+                            <button onClick={() => setContractFilter('ALL')} className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest border transition-all ${contractFilter === 'ALL' ? 'bg-[#264f36] text-white border-[#264f36]' : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-slate-100'}`}>Tous</button>
+                            {availableContracts.map(c => (
+                               <button key={c.id} onClick={() => setContractFilter(c.name)} className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest border transition-all ${contractFilter === c.name ? 'bg-[#264f36] text-white border-[#264f36]' : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-slate-100'}`}>{c.name}</button>
+                            ))}
+                         </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
+
               <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-1">
-                {filteredEmployees.map(emp => (
+                {filteredEmployees.length > 0 ? filteredEmployees.map(emp => (
                   <button key={emp.id} onClick={() => handleSelectEmployee(emp)} className={`w-full p-4 rounded-xl sm:rounded-2xl border transition-all flex items-center justify-between group ${selectedEmployee?.id === emp.id ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white border-slate-100 hover:border-slate-300 shadow-sm'}`}>
                     <div className="flex items-center gap-3 truncate">
                       <div className={`w-1.5 h-6 rounded-full shrink-0 ${ROLE_COLOR_CONFIG[emp.role]?.bg || 'bg-slate-200'}`} />
-                      <p className="text-xs font-black uppercase truncate">{emp.name}</p>
+                      <div className="text-left truncate">
+                        <p className="text-xs font-black uppercase truncate leading-none mb-1">{emp.name}</p>
+                        <p className={`text-[8px] font-bold uppercase tracking-widest truncate ${selectedEmployee?.id === emp.id ? 'text-emerald-400' : 'text-slate-400'}`}>{emp.role}</p>
+                      </div>
                     </div>
                     <ChevronRight size={14} className={selectedEmployee?.id === emp.id ? 'text-emerald-400' : 'text-slate-200'} />
                   </button>
-                ))}
+                )) : (
+                  <div className="flex flex-col items-center justify-center py-20 text-center bg-slate-50 rounded-[2rem] border border-dashed border-slate-200 opacity-60">
+                     <Search size={32} className="text-slate-300 mb-4" />
+                     <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-8">Aucun résultat correspondant aux filtres</p>
+                  </div>
+                )}
               </div>
             </aside>
 
