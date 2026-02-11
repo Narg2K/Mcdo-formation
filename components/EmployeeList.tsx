@@ -86,7 +86,6 @@ const EmployeeList: React.FC<EmployeeListProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('ALL');
-  const [contractFilter, setContractFilter] = useState<string>('ALL');
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<Employee | null>(null);
@@ -247,8 +246,7 @@ const EmployeeList: React.FC<EmployeeListProps> = ({
     .filter(emp => {
       const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesRole = roleFilter === 'ALL' || emp.role === roleFilter;
-      const matchesContract = contractFilter === 'ALL' || emp.contractType === contractFilter;
-      return matchesSearch && matchesRole && matchesContract;
+      return matchesSearch && matchesRole;
     })
     .sort((a, b) => {
       // 1. Priorité par Rôle (Manager > Formateur > Hôte > Mc Café > Équipier)
@@ -263,7 +261,7 @@ const EmployeeList: React.FC<EmployeeListProps> = ({
       return a.name.localeCompare(b.name);
     });
 
-  const activeFiltersCount = (roleFilter !== 'ALL' ? 1 : 0) + (contractFilter !== 'ALL' ? 1 : 0);
+  const activeFiltersCount = (roleFilter !== 'ALL' ? 1 : 0);
 
   return (
     <div className="h-full flex flex-col space-y-4 md:space-y-6 animate-in text-slate-900 overflow-hidden">
@@ -327,7 +325,7 @@ const EmployeeList: React.FC<EmployeeListProps> = ({
                   <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xl animate-in slide-in-from-top-2 duration-300 space-y-5">
                     <div className="flex items-center justify-between">
                        <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Filtres Actifs</h3>
-                       <button onClick={() => { setRoleFilter('ALL'); setContractFilter('ALL'); setShowFilters(false); }} className="text-[8px] font-black text-red-500 uppercase tracking-widest hover:underline flex items-center gap-1">
+                       <button onClick={() => { setRoleFilter('ALL'); setShowFilters(false); }} className="text-[8px] font-black text-red-500 uppercase tracking-widest hover:underline flex items-center gap-1">
                           <XCircle size={12} /> Reset
                        </button>
                     </div>
@@ -340,17 +338,6 @@ const EmployeeList: React.FC<EmployeeListProps> = ({
                             <button onClick={() => setRoleFilter('ALL')} className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest border transition-all ${roleFilter === 'ALL' ? 'bg-[#264f36] text-white border-[#264f36]' : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-slate-100'}`}>Tous</button>
                             {Object.values(Role).map(role => (
                                <button key={role} onClick={() => setRoleFilter(role)} className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest border transition-all ${roleFilter === role ? 'bg-[#264f36] text-white border-[#264f36]' : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-slate-100'}`}>{role}</button>
-                            ))}
-                         </div>
-                      </div>
-
-                      {/* CONTRACT FILTER */}
-                      <div className="space-y-2">
-                         <label className="text-[8px] font-black text-slate-300 uppercase tracking-widest ml-1">Par Contrat</label>
-                         <div className="flex flex-wrap gap-2">
-                            <button onClick={() => setContractFilter('ALL')} className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest border transition-all ${contractFilter === 'ALL' ? 'bg-[#264f36] text-white border-[#264f36]' : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-slate-100'}`}>Tous</button>
-                            {availableContracts.map(c => (
-                               <button key={c.id} onClick={() => setContractFilter(c.name)} className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest border transition-all ${contractFilter === c.name ? 'bg-[#264f36] text-white border-[#264f36]' : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-slate-100'}`}>{c.name}</button>
                             ))}
                          </div>
                       </div>

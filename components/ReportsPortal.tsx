@@ -14,7 +14,7 @@ interface ReportsPortalProps {
 const LEVEL_COLORS: Record<SkillLevel, { bg: string; text: string }> = {
   'Expert': { bg: '#264f36', text: '#ffffff' },
   'Formé': { bg: '#10b981', text: '#ffffff' },
-  'Intermédiaire': { bg: '#ffbc0d', text: '#000000' }, // Or McD avec texte noir pour contraste
+  'Intermédiaire': { bg: '#ffbc0d', text: '#000000' },
   'Débutant': { bg: '#fdba74', text: '#92400e' },
   'Non Formé': { bg: '#f1f5f9', text: '#94a3b8' },
 };
@@ -67,14 +67,14 @@ const ReportsPortal: React.FC<ReportsPortalProps> = ({ type, employees, availabl
 
     try {
       const canvas = await html2canvasLib(element, {
-        scale: 3,
+        scale: 2.5, // Réduction légère pour éviter les erreurs de buffer sur certains navigateurs
         useCORS: true,
         backgroundColor: '#ffffff',
         logging: false,
-        windowWidth: 800
+        windowWidth: 1200 // Augmentation pour assurer une meilleure capture des colonnes
       });
 
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const imgData = canvas.toDataURL('image/jpeg', 0.98);
       
       const pdf = new jspdfLib.jsPDF({
         orientation: 'portrait',
@@ -177,7 +177,7 @@ const ReportsPortal: React.FC<ReportsPortalProps> = ({ type, employees, availabl
             <table className="w-full border-collapse border border-slate-300 table-fixed">
               <thead>
                 <tr className="h-32">
-                  <th className="bg-slate-900 text-white p-3 text-[9px] font-black uppercase border border-slate-900 text-left w-[130px] align-middle">
+                  <th className="bg-slate-900 text-white p-3 text-[9px] font-black uppercase border border-slate-900 text-left w-[140px] align-middle">
                     Employé
                   </th>
                   {type === 'soc' ? (
@@ -201,13 +201,13 @@ const ReportsPortal: React.FC<ReportsPortalProps> = ({ type, employees, availabl
               </thead>
               <tbody>
                 {employees.map(emp => (
-                  <tr key={emp.id} className="h-8 page-break-inside-avoid">
-                    <td className="bg-white border border-slate-300 p-0 overflow-hidden">
-                      <div className="flex h-full items-center">
-                         <div className="w-1.5 self-stretch" style={{ backgroundColor: ROLE_INDICATORS[emp.role] || '#64748b' }}></div>
-                         <div className="flex-1 px-3 flex flex-col justify-center truncate">
-                            <span className="text-[9px] font-black uppercase text-slate-900 truncate leading-none mb-0.5">{emp.name}</span>
-                            <span className="text-[6px] font-bold uppercase text-slate-400 truncate tracking-widest">{emp.role}</span>
+                  <tr key={emp.id} className="h-9 page-break-inside-avoid">
+                    <td className="bg-white border border-slate-300 p-0 overflow-hidden align-middle">
+                      <div className="flex items-center h-full">
+                         <div className="w-1.5 h-full shrink-0" style={{ backgroundColor: ROLE_INDICATORS[emp.role] || '#64748b' }}></div>
+                         <div className="flex-1 pl-3 pr-2 flex flex-col justify-center py-1">
+                            <span className="text-[9px] font-black uppercase text-slate-900 leading-[1.1] mb-0.5 block truncate">{emp.name}</span>
+                            <span className="text-[6px] font-bold uppercase text-slate-400 leading-none tracking-widest block truncate">{emp.role}</span>
                          </div>
                       </div>
                     </td>
@@ -218,7 +218,7 @@ const ReportsPortal: React.FC<ReportsPortalProps> = ({ type, employees, availabl
                         const styles = LEVEL_COLORS[level];
                         const char = level === 'Non Formé' ? '-' : level[0].toUpperCase();
                         return (
-                          <td key={skillName} className="border border-slate-300 text-center p-0" style={{ backgroundColor: styles.bg }}>
+                          <td key={skillName} className="border border-slate-300 text-center p-0 align-middle" style={{ backgroundColor: styles.bg }}>
                             <span className="text-[7px] font-black leading-none block uppercase" style={{ color: styles.text }}>
                               {char}
                             </span>
@@ -231,7 +231,7 @@ const ReportsPortal: React.FC<ReportsPortalProps> = ({ type, employees, availabl
                         const status = empCert?.status || 'Manquant';
                         const styles = CERT_COLORS[status];
                         return (
-                          <td key={mandatoryCert.name} className="border border-slate-300 text-center p-0" style={{ backgroundColor: styles.bg }}>
+                          <td key={mandatoryCert.name} className="border border-slate-300 text-center p-0 align-middle" style={{ backgroundColor: styles.bg }}>
                             <span className="text-[7px] font-black uppercase leading-none" style={{ color: styles.text }}>
                               {status === 'Complété' ? 'V' : '-'}
                             </span>
