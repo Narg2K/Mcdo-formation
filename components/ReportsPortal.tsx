@@ -1,8 +1,7 @@
 
-import React, { useMemo, useEffect } from 'react';
-import { X, Printer, ShieldCheck, Download, Activity } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Printer, Download, Loader2, FileText, ChevronLeft, ShieldCheck, Sparkles } from 'lucide-react';
 import { Employee, SkillLevel, GlobalCertConfig, Role } from '../types';
-import { ROLE_COLOR_CONFIG } from './EmployeeList';
 
 interface ReportsPortalProps {
   type: 'soc' | 'certs';
@@ -12,171 +11,203 @@ interface ReportsPortalProps {
   onClose: () => void;
 }
 
-// Couleurs haute visibilité garanties pour l'impression
 const LEVEL_COLORS: Record<SkillLevel, { bg: string; text: string }> = {
-  'Expert': { bg: '#064e3b', text: '#ffffff' },
+  'Expert': { bg: '#264f36', text: '#ffffff' },
   'Formé': { bg: '#10b981', text: '#ffffff' },
-  'Intermédiaire': { bg: '#f59e0b', text: '#ffffff' },
-  'Débutant': { bg: '#f97316', text: '#ffffff' },
-  'Non Formé': { bg: '#ef4444', text: '#ffffff' },
+  'Intermédiaire': { bg: '#ffbc0d', text: '#000000' }, // Or McD avec texte noir pour contraste
+  'Débutant': { bg: '#fdba74', text: '#92400e' },
+  'Non Formé': { bg: '#f1f5f9', text: '#94a3b8' },
 };
 
 const CERT_COLORS: Record<string, { bg: string; text: string }> = {
-  'Complété': { bg: '#10b981', text: '#ffffff' },
-  'À faire': { bg: '#f59e0b', text: '#ffffff' },
+  'Complété': { bg: '#264f36', text: '#ffffff' },
+  'À faire': { bg: '#ffbc0d', text: '#000000' },
   'Expiré': { bg: '#ef4444', text: '#ffffff' },
-  'Manquant': { bg: '#64748b', text: '#ffffff' },
+  'Manquant': { bg: '#f1f5f9', text: '#cbd5e1' },
 };
 
-// Map pure hex colors for print roles
-const ROLE_PRINT_COLORS: Record<string, { bg: string, text: string }> = {
-  [Role.MANAGER]: { bg: '#ffffff', text: '#000000' },
-  [Role.TRAINER]: { bg: '#2563eb', text: '#ffffff' },
-  [Role.EQUIPPIER]: { bg: '#38bdf8', text: '#ffffff' },
-  [Role.MCCAFE]: { bg: '#10b981', text: '#ffffff' },
-  [Role.HOTE]: { bg: '#ef4444', text: '#ffffff' },
+const ROLE_INDICATORS: Record<string, string> = {
+  [Role.MANAGER]: '#0f172a',
+  [Role.TRAINER]: '#2563eb',
+  [Role.EQUIPPIER]: '#38bdf8',
+  [Role.MCCAFE]: '#10b981',
+  [Role.HOTE]: '#ef4444',
 };
 
 const formatHeaderName = (name: string) => {
   const upper = name.toUpperCase();
-  if (upper.length <= 10) return upper;
-  
   const dict: Record<string, string> = {
-    'MAINTENANCE': 'MAINT.',
-    'LIVRAISON': 'LIVR.',
-    'NETTOYAGE': 'NETT.',
-    'BOISSON': 'BOIS.',
-    'CUISON': 'CUIS.',
-    'VIANDE': 'V.',
-    'HOSPITALITÉ': 'HOSP.',
-    'COMMANDE': 'CMD',
+    'MAINTENANCE': 'MAINT.', 'LIVRAISON': 'LIVR.', 'NETTOYAGE': 'NETT.',
+    'BOISSON': 'BOIS.', 'CUISON': 'CUIS.', 'VIANDE': 'V.', 'COMMANDE': 'CMD'
   };
-
   let formatted = upper;
-  Object.entries(dict).forEach(([full, short]) => {
-    formatted = formatted.replace(full, short);
-  });
-
-  return formatted.length > 12 ? formatted.substring(0, 10) + '..' : formatted;
+  Object.entries(dict).forEach(([f, s]) => { formatted = formatted.replace(f, s); });
+  return formatted;
 };
 
 const ReportsPortal: React.FC<ReportsPortalProps> = ({ type, employees, availableSkills, availableCertifications, onClose }) => {
-  
-  const originalTitle = document.title;
-
-  const handleAction = (action: 'print' | 'install') => {
-    const fileName = type === 'soc' ? `MATRICE_POSTE_${new Date().toLocaleDateString('fr-FR')}` : `REGISTRE_CERTIFS_${new Date().toLocaleDateString('fr-FR')}`;
-    document.title = fileName;
-    window.print();
-    setTimeout(() => {
-      document.title = originalTitle;
-    }, 1000);
-  };
-
+  const [isGenerating, setIsGenerating] = useState(false);
   const today = new Date().toLocaleDateString('fr-FR');
 
+  const handleDownloadPDF = async () => {
+    setIsGenerating(true);
+    const element = document.getElementById('report-document-a4');
+    
+    // @ts-ignore
+    const jspdfLib = window.jspdf;
+    // @ts-ignore
+    const html2canvasLib = window.html2canvas;
+
+    if (!element || !jspdfLib || !html2canvasLib) {
+      console.error("Librairies PDF manquantes ou élément non trouvé");
+      alert("Erreur technique : Librairies de génération non prêtes. Veuillez réessayer ou utiliser 'Imprimer'.");
+      setIsGenerating(false);
+      return;
+    }
+
+    try {
+      const canvas = await html2canvasLib(element, {
+        scale: 3,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        windowWidth: 800
+      });
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      
+      const pdf = new jspdfLib.jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const margin = 10;
+      const displayWidth = pdfWidth - (margin * 2);
+      
+      const imgProps = pdf.getImageProperties(imgData);
+      const ratio = imgProps.width / imgProps.height;
+      const displayHeight = displayWidth / ratio;
+
+      pdf.addImage(imgData, 'JPEG', margin, margin, displayWidth, displayHeight);
+      pdf.save(`MCFO_${type.toUpperCase()}_${today.replace(/\//g, '-')}.pdf`);
+    } catch (err) {
+      console.error("Erreur génération PDF:", err);
+      alert("Une erreur est survenue lors de la création du PDF. L'option 'Imprimer' reste disponible.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-[200] bg-white overflow-y-auto report-wrapper">
-      {/* Control Bar */}
-      <div className="sticky top-0 bg-white border-b border-slate-200 px-8 py-4 flex flex-col md:flex-row items-center justify-between gap-6 no-print shadow-xl z-[210]">
-        <div className="flex items-center gap-8">
-           <div className="flex items-center gap-4">
-              <div className="relative">
-                <div className="bg-emerald-500 w-3 h-3 rounded-full animate-ping absolute inset-0"></div>
-                <div className="bg-emerald-600 w-3 h-3 rounded-full relative"></div>
-              </div>
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-[#264f36] flex items-center gap-2">
-                  <Activity size={12} /> Statut : Live Sync
-                </span>
-                <p className="text-[9px] font-bold text-slate-400 uppercase">Rapport de direction prêt</p>
-              </div>
-           </div>
+    <div className="fixed inset-0 z-[600] bg-slate-100 overflow-y-auto font-sans">
+      <div className="sticky top-0 bg-white/95 backdrop-blur-xl border-b border-slate-200 px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-6 no-print z-[610] shadow-sm">
+        <div className="flex items-center gap-4">
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl transition-all">
+            <ChevronLeft size={20} className="text-slate-400" />
+          </button>
+          <div className="flex items-center gap-3">
+            <div className="bg-[#264f36] p-2.5 rounded-xl text-white shadow-lg">
+              <FileText size={18} />
+            </div>
+            <div>
+              <h2 className="text-xs font-black uppercase tracking-tighter text-slate-900 leading-none">Console d'Exportation</h2>
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">Format A4 Portrait • Store #0437</p>
+            </div>
+          </div>
         </div>
 
-        <div className="flex gap-4">
+        <div className="flex items-center gap-3 w-full md:w-auto">
           <button 
-            onClick={() => handleAction('install')}
-            className="flex items-center gap-3 px-6 py-3 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.15em] shadow-lg hover:bg-black transition-all active:scale-95 group"
-            title="Enregistrer en PDF"
+            onClick={handleDownloadPDF}
+            disabled={isGenerating}
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-[#264f36] text-white rounded-xl font-black text-[9px] uppercase tracking-widest shadow-lg hover:bg-slate-900 transition-all active:scale-95 disabled:opacity-50"
           >
-            <Download size={16} className="group-hover:translate-y-0.5 transition-transform" /> Installer PDF
+            {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+            {isGenerating ? "Génération..." : "Télécharger PDF"}
           </button>
+          
           <button 
-            onClick={() => handleAction('print')}
-            className="flex items-center gap-3 px-6 py-3 bg-[#264f36] text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.15em] shadow-lg hover:bg-emerald-900 transition-all active:scale-95"
-            title="Imprimer"
+            onClick={() => window.print()}
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-white text-slate-900 border border-slate-200 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm"
           >
-            <Printer size={16} /> Imprimer Matrix
+            <Printer size={16} /> Imprimer
           </button>
-          <button 
-            onClick={onClose}
-            className="flex items-center justify-center w-12 h-12 bg-slate-100 text-slate-500 rounded-2xl hover:bg-red-50 hover:text-red-500 transition-all shadow-sm"
-          >
+
+          <button onClick={onClose} className="w-10 h-10 flex items-center justify-center bg-red-50 text-red-500 border border-red-100 rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-sm">
             <X size={20} />
           </button>
         </div>
       </div>
 
-      {/* Printable Document Area */}
-      <div className="p-8 md:p-16 max-w-[29.7cm] mx-auto bg-white min-h-screen printable-content">
-        {/* Document Header */}
-        <div className="flex justify-between items-end mb-10 border-b-4 border-slate-900 pb-8">
-          <div className="flex items-center gap-5">
-             <div className="bg-slate-900 p-4 rounded-2xl text-white shadow-lg">
-               <ShieldCheck size={32} />
-             </div>
-             <div>
-                <h1 className="text-slate-900 text-3xl font-black uppercase tracking-tighter leading-none">McDonald's Cannes</h1>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] mt-2">Outil de gestion de restaurant #0437</p>
-             </div>
+      <div className="py-12 flex flex-col items-center no-print bg-slate-200/40 min-h-screen">
+        <div 
+          id="report-document-a4" 
+          className="bg-white shadow-2xl overflow-hidden"
+          style={{ 
+            width: '210mm', 
+            minHeight: '297mm',
+            padding: '15mm 20mm',
+            boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column',
+            backgroundColor: '#ffffff'
+          }}
+        >
+          <div className="flex justify-between items-end mb-10 border-b-2 border-slate-900 pb-6 w-full">
+            <div className="flex items-center gap-4">
+               <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/McDonald%27s_Golden_Arches.svg" alt="M" className="w-12 h-12 object-contain" />
+               <div className="flex flex-col">
+                  <h1 className="text-slate-900 text-xl font-black uppercase tracking-tighter leading-none mb-1">McFormation</h1>
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] italic opacity-80">Store Operations Report #0437</p>
+               </div>
+            </div>
+            <div className="text-right flex flex-col items-end">
+              <h2 className="text-base font-black uppercase text-slate-900 tracking-tight leading-none mb-2">
+                {type === 'soc' ? 'Matrice de Polyvalence' : 'Registre des Certificats'}
+              </h2>
+              <div className="bg-slate-900 text-white px-2 py-1 rounded-md">
+                <p className="text-[8px] font-normal uppercase tracking-widest leading-none">Émis le {today}</p>
+              </div>
+            </div>
           </div>
-          <div className="text-right">
-            <h2 className="text-xl font-black uppercase text-slate-900 tracking-tight">
-              {type === 'soc' ? 'Matrice de Poste' : 'Registre de Conformité Légale'}
-            </h2>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Édité le : {today}</p>
-          </div>
-        </div>
 
-        {/* Matrix Table */}
-        <div className="w-full mb-12">
-          <table className="w-full border-collapse border-2 border-slate-900 table-fixed">
-            <thead>
-              <tr className="h-44">
-                <th className="bg-slate-900 text-white p-4 text-[11px] font-black uppercase border border-slate-900 text-left w-[180px] align-middle">
-                  Nom & Rôle
-                </th>
-                {type === 'soc' ? (
-                  availableSkills.map(skill => (
-                    <th className="bg-slate-50 border border-slate-900 p-0 relative min-w-[35px] max-w-[50px]">
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="transform -rotate-90 whitespace-nowrap text-[9px] font-black uppercase tracking-tighter text-slate-700">
-                          {formatHeaderName(skill)}
-                        </span>
-                      </div>
-                    </th>
-                  ))
-                ) : (
-                  availableCertifications.filter(c => c.isMandatory).map(cert => (
-                    <th key={cert.name} className="bg-slate-50 border border-slate-900 p-2 text-[9px] font-black uppercase leading-tight text-slate-700">
-                      {cert.name}
-                    </th>
-                  ))
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {employees.map(emp => {
-                const rPrint = ROLE_PRINT_COLORS[emp.role] || ROLE_PRINT_COLORS[Role.EQUIPPIER];
-                return (
-                  <tr key={emp.id} className="h-10 page-break-inside-avoid">
-                    <td className="bg-white border-2 border-slate-900 p-0 overflow-hidden">
-                      <div className="flex h-full">
-                         <div className="w-2 print-color-exact" style={{ backgroundColor: rPrint.bg }}></div>
-                         <div className="flex-1 p-2 flex flex-col justify-center truncate">
-                            <span className="text-[11px] font-black uppercase text-slate-900 truncate">{emp.name}</span>
-                            <span className="text-[7px] font-bold uppercase opacity-60" style={{ color: rPrint.bg === '#ffffff' ? '#64748b' : rPrint.bg }}>{emp.role}</span>
+          <div className="w-full flex-1">
+            <table className="w-full border-collapse border border-slate-300 table-fixed">
+              <thead>
+                <tr className="h-32">
+                  <th className="bg-slate-900 text-white p-3 text-[9px] font-black uppercase border border-slate-900 text-left w-[130px] align-middle">
+                    Employé
+                  </th>
+                  {type === 'soc' ? (
+                    availableSkills.map(skill => (
+                      <th key={skill} className="bg-slate-50 border border-slate-300 p-0 relative overflow-hidden">
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="transform -rotate-90 whitespace-nowrap text-[7px] font-black uppercase tracking-tighter text-slate-800">
+                            {formatHeaderName(skill)}
+                          </span>
+                        </div>
+                      </th>
+                    ))
+                  ) : (
+                    availableCertifications.filter(c => c.isMandatory).map(cert => (
+                      <th key={cert.name} className="bg-slate-50 border border-slate-300 p-1 text-[7px] font-black uppercase leading-tight text-slate-800 text-center align-middle">
+                        {cert.name}
+                      </th>
+                    ))
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {employees.map(emp => (
+                  <tr key={emp.id} className="h-8 page-break-inside-avoid">
+                    <td className="bg-white border border-slate-300 p-0 overflow-hidden">
+                      <div className="flex h-full items-center">
+                         <div className="w-1.5 self-stretch" style={{ backgroundColor: ROLE_INDICATORS[emp.role] || '#64748b' }}></div>
+                         <div className="flex-1 px-3 flex flex-col justify-center truncate">
+                            <span className="text-[9px] font-black uppercase text-slate-900 truncate leading-none mb-0.5">{emp.name}</span>
+                            <span className="text-[6px] font-bold uppercase text-slate-400 truncate tracking-widest">{emp.role}</span>
                          </div>
                       </div>
                     </td>
@@ -185,14 +216,11 @@ const ReportsPortal: React.FC<ReportsPortalProps> = ({ type, employees, availabl
                         const skill = emp.skills.find(s => s.name.toUpperCase() === skillName.toUpperCase());
                         const level = skill?.level || 'Non Formé';
                         const styles = LEVEL_COLORS[level];
+                        const char = level === 'Non Formé' ? '-' : level[0].toUpperCase();
                         return (
-                          <td 
-                            key={skillName} 
-                            className="border border-slate-900 text-center p-0.5 print-color-exact"
-                            style={{ backgroundColor: styles.bg }}
-                          >
-                            <span className="text-[8px] font-black leading-none block uppercase" style={{ color: styles.text }}>
-                              {level === 'Non Formé' ? 'NF' : level[0]}
+                          <td key={skillName} className="border border-slate-300 text-center p-0" style={{ backgroundColor: styles.bg }}>
+                            <span className="text-[7px] font-black leading-none block uppercase" style={{ color: styles.text }}>
+                              {char}
                             </span>
                           </td>
                         );
@@ -203,100 +231,50 @@ const ReportsPortal: React.FC<ReportsPortalProps> = ({ type, employees, availabl
                         const status = empCert?.status || 'Manquant';
                         const styles = CERT_COLORS[status];
                         return (
-                          <td 
-                            key={mandatoryCert.name} 
-                            className="border border-slate-900 text-center p-1 print-color-exact"
-                            style={{ backgroundColor: styles.bg }}
-                          >
-                            <span className="text-[9px] font-black uppercase leading-none" style={{ color: styles.text }}>
-                              {status === 'Complété' ? 'OK' : status}
+                          <td key={mandatoryCert.name} className="border border-slate-300 text-center p-0" style={{ backgroundColor: styles.bg }}>
+                            <span className="text-[7px] font-black uppercase leading-none" style={{ color: styles.text }}>
+                              {status === 'Complété' ? 'V' : '-'}
                             </span>
                           </td>
                         );
                       })
                     )}
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Legend */}
-        <div className="mt-12 page-break-avoid border-t-2 border-slate-100 pt-10">
-          <h3 className="text-[12px] font-black uppercase text-slate-400 tracking-[0.3em] mb-6 text-center">Légende des Niveaux & Rôles</h3>
-          
-          <div className="flex flex-col gap-8 bg-slate-50/50 p-8 rounded-[3rem] border border-slate-100 shadow-inner">
-             {/* Levels Legend */}
-             <div className="flex flex-wrap gap-8 justify-center">
-                {Object.entries(LEVEL_COLORS).map(([label, styles]) => (
-                  <div key={label} className="flex items-center gap-3">
-                    <div className="w-6 h-6 rounded-lg border-2 border-white flex items-center justify-center shadow-md print-color-exact" style={{ backgroundColor: styles.bg }}>
-                      <span className="text-[8px] font-black" style={{ color: styles.text }}>{label === 'Non Formé' ? 'NF' : label[0]}</span>
-                    </div>
-                    <span className="text-[10px] font-black text-slate-700 uppercase tracking-tight">{label}</span>
-                  </div>
                 ))}
-             </div>
-
-             {/* Roles Legend - New Addition */}
-             <div className="flex flex-wrap gap-6 justify-center border-t border-slate-200 pt-6">
-                {Object.entries(ROLE_PRINT_COLORS).map(([role, styles]) => (
-                  <div key={role} className="flex items-center gap-3">
-                    <div className="w-6 h-6 rounded-lg border border-slate-200 shadow-sm print-color-exact" style={{ backgroundColor: styles.bg }}></div>
-                    <span className="text-[10px] font-black text-slate-700 uppercase tracking-tight">{role}</span>
-                  </div>
-                ))}
-             </div>
+              </tbody>
+            </table>
           </div>
-        </div>
-
-        <div className="mt-20 text-[9px] text-slate-300 font-bold uppercase text-center pt-6 border-t border-slate-50 italic tracking-widest">
-          Système McDonald's Cannes • Store #0437 • Document d'Audit Opérationnel
+          
+          <div className="mt-8 pt-8 border-t border-slate-100 flex justify-between items-start">
+            <div className="grid grid-cols-3 gap-x-8 gap-y-2">
+                {Object.entries(LEVEL_COLORS).map(([lvl, styles]) => (
+                  <div key={lvl} className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded" style={{ backgroundColor: styles.bg, border: '1px solid #e2e8f0' }}></div>
+                    <span className="text-[7px] font-black uppercase text-slate-500">{lvl}</span>
+                  </div>
+                ))}
+            </div>
+            <div className="text-right">
+              <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Document généré par McFormation Console</p>
+            </div>
+          </div>
         </div>
       </div>
 
       <style>{`
         @media print {
-          @page { 
-            size: landscape; 
-            margin: 1cm; 
-          }
-          body { 
-            background: white !important; 
-          }
-          .report-wrapper {
-            position: static !important;
-            overflow: visible !important;
-          }
-          .no-print { 
-            display: none !important; 
-          }
-          .printable-content {
+          @page { size: A4 portrait; margin: 10mm; }
+          body { background: white !important; margin: 0 !important; }
+          .no-print { display: none !important; }
+          #report-document-a4 {
             padding: 0 !important;
             margin: 0 !important;
-            max-width: none !important;
+            width: 100% !important;
+            box-shadow: none !important;
+            border: none !important;
           }
-          .page-break-inside-avoid { 
-            page-break-inside: avoid; 
-          }
-          table { 
-            width: 100% !important; 
-            table-layout: fixed !important; 
-            border-collapse: collapse !important;
-            border: 2px solid #000 !important;
-          }
-          th, td { 
-            border: 1px solid #000 !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-            color-adjust: exact !important;
-          }
-          .print-color-exact {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-            color-adjust: exact !important;
-          }
+          table { width: 100% !important; border: 1pt solid #cbd5e1 !important; }
+          th, td { border: 0.5pt solid #cbd5e1 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
       `}</style>
     </div>

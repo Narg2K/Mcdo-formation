@@ -1,6 +1,5 @@
 
-// Always use import {GoogleGenAI} from "@google/genai";
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type } from "https://esm.sh/@google/genai@^1.40.0";
 import { Employee, Task, Vacation, AIPlanningResponse } from "../types";
 
 export const getIntelligentAssignments = async (
@@ -8,30 +7,24 @@ export const getIntelligentAssignments = async (
   tasks: Task[],
   vacations: Vacation[]
 ): Promise<AIPlanningResponse> => {
-  // Always initialize with apiKey in a named parameter
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const prompt = `
-    En tant qu'assistant de planification intelligent pour un restaurant McDonald's (Plateforme McFormation), affecte de manière optimale les tâches suivantes.
+    En tant qu'assistant de planification pour McDonald's, affecte ces tâches logistiques.
     
-    Critères prioritaires :
-    1. COMPÉTENCE : L'employé doit posséder la compétence requise. 
-       - Favorise les niveaux "Expert" et "Formé" pour les tâches critiques.
-       - Évite d'affecter un "Débutant" seul sur une tâche complexe.
-    2. DISPONIBILITÉ : L'employé ne doit pas être en vacances (données fournies).
-    3. ÉQUITÉ : Répartis la charge de travail intelligemment sur l'équipe.
+    Contraintes :
+    1. COMPÉTENCE : L'employé doit être capable (Expert/Formé).
+    2. DISPONIBILITÉ : Pas de vacances.
+    3. ÉQUITÉ : Charge répartie.
 
     Données :
-    Employés (Nom, Rôle, Compétences et Niveaux): ${JSON.stringify(employees.map(e => ({ id: e.id, name: e.name, skills: e.skills })))}
-    Tâches: ${JSON.stringify(tasks.map(t => ({ id: t.id, title: t.title, requiredSkills: t.requiredSkills, deadline: t.deadline })))}
+    Employés: ${JSON.stringify(employees.map(e => ({ id: e.id, name: e.name, skills: e.skills })))}
+    Tâches: ${JSON.stringify(tasks.map(t => ({ id: t.id, title: t.title, requiredSkills: t.requiredSkills })))}
     Vacances: ${JSON.stringify(vacations)}
 
-    Explique brièvement la raison de chaque affectation en citant le niveau de compétence (ex: "Thomas est Expert sur ce poste").
-    Réponds uniquement au format JSON.
+    Réponds uniquement en JSON.
   `;
 
-  // Always use ai.models.generateContent directly
-  // Using gemini-3-pro-preview for complex reasoning task (planning optimization)
   const response = await ai.models.generateContent({
     model: "gemini-3-pro-preview",
     contents: prompt,
@@ -59,11 +52,10 @@ export const getIntelligentAssignments = async (
   });
 
   try {
-    // Access the .text property directly, it's not a method
     const text = response.text || "{}";
     return JSON.parse(text.trim()) as AIPlanningResponse;
   } catch (error) {
-    console.error("Failed to parse Gemini response:", error);
+    console.error("Gemini Error:", error);
     return { assignments: [] };
   }
 };
