@@ -5,7 +5,8 @@ import {
   GraduationCap, Mail, Phone, Settings2, Undo2, 
   Download, UserCircle, Clock, Calendar, ShieldCheck, 
   CheckCircle2, AlertCircle, FileText, Trash, Plus, Briefcase, Tag,
-  Upload, Eye, AlertTriangle, FileDown, FileUp, Filter, XCircle
+  Upload, Eye, AlertTriangle, FileDown, FileUp, Filter, XCircle,
+  Coffee, Star, User
 } from 'lucide-react';
 import { Employee, Role, GlobalCertConfig, SkillLevel, ContractConfig, ActivityLog, Skill, EmployeeCert } from '../types';
 import ReportsPortal from './ReportsPortal';
@@ -53,12 +54,20 @@ const checkIsExpired = (expiryDate?: string) => {
   return exp < now;
 };
 
-export const ROLE_COLOR_CONFIG: Record<string, { bg: string, text: string, border: string }> = {
-  [Role.MANAGER]: { bg: 'bg-slate-900', text: 'text-white', border: 'border-slate-900' },
-  [Role.TRAINER]: { bg: 'bg-blue-600', text: 'text-white', border: 'border-blue-700' },
-  [Role.EQUIPPIER]: { bg: 'bg-sky-400', text: 'text-white', border: 'border-sky-500' },
-  [Role.MCCAFE]: { bg: 'bg-emerald-500', text: 'text-white', border: 'border-emerald-600' },
-  [Role.HOTE]: { bg: 'bg-red-500', text: 'text-white', border: 'border-red-600' },
+export const ROLE_ICON_CONFIG: Record<string, any> = {
+  [Role.MANAGER]: ShieldCheck,
+  [Role.TRAINER]: GraduationCap,
+  [Role.EQUIPPIER]: User,
+  [Role.MCCAFE]: Coffee,
+  [Role.HOTE]: Star,
+};
+
+export const ROLE_COLOR_CONFIG: Record<string, { bg: string, text: string, border: string, icon: string }> = {
+  [Role.MANAGER]: { bg: 'bg-slate-900', text: 'text-white', border: 'border-slate-900', icon: 'text-slate-400' },
+  [Role.TRAINER]: { bg: 'bg-blue-600', text: 'text-white', border: 'border-blue-700', icon: 'text-blue-500' },
+  [Role.EQUIPPIER]: { bg: 'bg-sky-400', text: 'text-white', border: 'border-sky-500', icon: 'text-sky-400' },
+  [Role.MCCAFE]: { bg: 'bg-emerald-500', text: 'text-white', border: 'border-emerald-600', icon: 'text-emerald-500' },
+  [Role.HOTE]: { bg: 'bg-red-500', text: 'text-white', border: 'border-red-600', icon: 'text-red-500' },
 };
 
 interface EmployeeListProps {
@@ -279,19 +288,19 @@ const EmployeeList: React.FC<EmployeeListProps> = ({
             </p>
           </div>
           
-          <div className={`grid grid-cols-3 sm:flex items-center gap-2 sm:gap-3 ${mobileView === 'profile' ? 'hidden sm:grid' : 'grid'}`}>
-            <button onClick={() => setFullScreenReport('soc')} className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-3 py-2.5 sm:px-5 sm:py-3 bg-white border border-slate-200 rounded-xl sm:rounded-2xl shadow-sm hover:shadow-md transition-all">
-              <Download size={16} className="text-blue-600" />
-              <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest text-center">SOC</span>
+          <div className={`grid grid-cols-3 sm:flex items-center gap-1.5 sm:gap-3 ${mobileView === 'profile' ? 'hidden sm:grid' : 'grid'}`}>
+            <button onClick={() => setFullScreenReport('soc')} className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 py-2.5 sm:px-5 sm:py-3 bg-white border border-slate-200 rounded-xl sm:rounded-2xl shadow-sm hover:shadow-md transition-all">
+              <Download size={14} className="text-blue-600 sm:w-[16px] sm:h-[16px]" />
+              <span className="text-[7px] sm:text-[10px] font-black uppercase tracking-widest text-center">SOC</span>
             </button>
-            <button onClick={() => setIsTrashView(true)} className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-3 py-2.5 sm:px-4 sm:py-3 bg-red-50 text-red-600 border border-red-100 rounded-xl sm:rounded-2xl shadow-sm relative">
-              <Trash size={16} />
-              <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest text-center">Corbeille</span>
-              {trashEmployees.length > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-600 text-white text-[8px] font-black flex items-center justify-center rounded-full border border-white">{trashEmployees.length}</span>}
+            <button onClick={() => setIsTrashView(true)} className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 py-2.5 sm:px-4 sm:py-3 bg-red-50 text-red-600 border border-red-100 rounded-xl sm:rounded-2xl shadow-sm relative">
+              <Trash size={14} className="sm:w-[16px] sm:h-[16px]" />
+              <span className="text-[7px] sm:text-[10px] font-black uppercase tracking-widest text-center">Corbeille</span>
+              {trashEmployees.length > 0 && <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-600 text-white text-[7px] font-black flex items-center justify-center rounded-full border border-white">{trashEmployees.length}</span>}
             </button>
-            <button onClick={handleRecruit} className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-3 px-3 py-2.5 sm:px-8 sm:py-4 bg-[#264f36] text-white rounded-xl sm:rounded-[1.25rem] shadow-xl hover:bg-slate-900 transition-all">
-              <Plus size={18} />
-              <span className="text-[8px] sm:text-[11px] font-black uppercase tracking-widest text-center">Nouveau</span>
+            <button onClick={handleRecruit} className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-3 px-2 py-2.5 sm:px-8 sm:py-4 bg-[#264f36] text-white rounded-xl sm:rounded-[1.25rem] shadow-xl hover:bg-slate-900 transition-all">
+              <Plus size={16} className="sm:w-[18px] sm:h-[18px]" />
+              <span className="text-[7px] sm:text-[11px] font-black uppercase tracking-widest text-center">Nouveau</span>
             </button>
           </div>
         </div>
@@ -347,18 +356,24 @@ const EmployeeList: React.FC<EmployeeListProps> = ({
               </div>
 
               <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-1">
-                {filteredEmployees.length > 0 ? filteredEmployees.map(emp => (
-                  <button key={emp.id} onClick={() => handleSelectEmployee(emp)} className={`w-full p-4 rounded-xl sm:rounded-2xl border transition-all flex items-center justify-between group ${selectedEmployee?.id === emp.id ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white border-slate-100 hover:border-slate-300 shadow-sm'}`}>
-                    <div className="flex items-center gap-3 truncate">
-                      <div className={`w-1.5 h-6 rounded-full shrink-0 ${ROLE_COLOR_CONFIG[emp.role]?.bg || 'bg-slate-200'}`} />
-                      <div className="text-left truncate">
-                        <p className="text-xs font-black uppercase truncate leading-none mb-1">{emp.name}</p>
-                        <p className={`text-[8px] font-bold uppercase tracking-widest truncate ${selectedEmployee?.id === emp.id ? 'text-emerald-400' : 'text-slate-400'}`}>{emp.role}</p>
+                {filteredEmployees.length > 0 ? filteredEmployees.map(emp => {
+                  const RoleIcon = ROLE_ICON_CONFIG[emp.role] || User;
+                  const isSelected = selectedEmployee?.id === emp.id;
+                  return (
+                    <button key={emp.id} onClick={() => handleSelectEmployee(emp)} className={`w-full p-4 rounded-xl sm:rounded-2xl border transition-all flex items-center justify-between group ${isSelected ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white border-slate-100 hover:border-slate-300 shadow-sm'}`}>
+                      <div className="flex items-center gap-3 truncate">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-white/10 text-emerald-400' : 'bg-slate-50 text-slate-400 group-hover:bg-slate-100'}`}>
+                          <RoleIcon size={18} />
+                        </div>
+                        <div className="text-left truncate">
+                          <p className="text-xs font-black uppercase truncate leading-none mb-1">{emp.name}</p>
+                          <p className={`text-[8px] font-bold uppercase tracking-widest truncate ${isSelected ? 'text-emerald-400' : 'text-slate-400'}`}>{emp.role}</p>
+                        </div>
                       </div>
-                    </div>
-                    <ChevronRight size={14} className={selectedEmployee?.id === emp.id ? 'text-emerald-400' : 'text-slate-200'} />
-                  </button>
-                )) : (
+                      <ChevronRight size={14} className={isSelected ? 'text-emerald-400' : 'text-slate-200'} />
+                    </button>
+                  );
+                }) : (
                   <div className="flex flex-col items-center justify-center py-20 text-center bg-slate-50 rounded-[2rem] border border-dashed border-slate-200 opacity-60">
                      <Search size={32} className="text-slate-300 mb-4" />
                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-8">Aucun résultat correspondant aux filtres</p>
@@ -371,17 +386,23 @@ const EmployeeList: React.FC<EmployeeListProps> = ({
               {selectedEmployee ? (
                 <div className="space-y-6 sm:space-y-8 animate-in">
                   
-                  <button onClick={() => setMobileView('list')} className="lg:hidden flex items-center gap-2 px-4 py-3 bg-white border border-slate-200 rounded-xl text-[10px] font-black text-slate-900 uppercase tracking-widest mb-4 shadow-sm active:scale-95">
-                    <ChevronLeft size={18} /> Retour à l'équipe
+                  <button onClick={() => setMobileView('list')} className="lg:hidden w-full flex items-center justify-center gap-3 px-4 py-4 bg-white border border-slate-200 rounded-2xl text-[10px] font-black text-slate-900 uppercase tracking-widest mb-6 shadow-sm active:scale-95">
+                    <ChevronLeft size={20} /> Retour à l'équipe
                   </button>
 
                   {/* BOX NOM */}
-                  <div className={`rounded-2xl sm:rounded-[3rem] p-6 sm:p-10 shadow-2xl transition-all relative overflow-hidden text-white ${ROLE_COLOR_CONFIG[isEditing ? editData?.role || selectedEmployee.role : selectedEmployee.role]?.bg || 'bg-[#264f36]'}`}>
+                  <div className={`rounded-3xl sm:rounded-[3rem] p-5 sm:p-10 shadow-2xl transition-all relative overflow-hidden text-white ${ROLE_COLOR_CONFIG[isEditing ? editData?.role || selectedEmployee.role : selectedEmployee.role]?.bg || 'bg-[#264f36]'}`}>
                     <div className="relative z-10 flex flex-col gap-6 sm:gap-10">
                       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6">
                         <div className="flex flex-col sm:flex-row sm:items-center gap-6 sm:gap-10">
-                          <div className="w-20 h-20 sm:w-28 sm:h-28 mx-auto sm:mx-0 rounded-2xl sm:rounded-[2.5rem] bg-white/10 border border-white/20 flex items-center justify-center text-3xl sm:text-5xl font-black shrink-0 shadow-lg backdrop-blur-md">
+                          <div className="w-20 h-20 sm:w-28 sm:h-28 mx-auto sm:mx-0 rounded-2xl sm:rounded-[2.5rem] bg-white/10 border border-white/20 flex items-center justify-center text-3xl sm:text-5xl font-black shrink-0 shadow-lg backdrop-blur-md relative">
                             {(isEditing ? editData?.name : selectedEmployee.name)?.[0] || '?'}
+                            <div className="absolute -bottom-2 -right-2 w-8 h-8 sm:w-10 sm:h-10 bg-white text-slate-900 rounded-xl flex items-center justify-center shadow-lg">
+                              {(() => {
+                                const Icon = ROLE_ICON_CONFIG[isEditing ? editData?.role || selectedEmployee.role : selectedEmployee.role] || User;
+                                return <Icon size={18} />;
+                              })()}
+                            </div>
                           </div>
                           
                           <div className="flex-1 space-y-4 flex flex-col items-center sm:items-start text-center sm:text-left">
@@ -472,7 +493,7 @@ const EmployeeList: React.FC<EmployeeListProps> = ({
                   </div>
 
                   {/* SECTION CONTRAT DÉTAILLÉE */}
-                  <div className="bg-white p-6 sm:p-10 rounded-2xl sm:rounded-[3rem] border border-slate-100 shadow-sm">
+                  <div className="bg-white p-5 sm:p-10 rounded-3xl sm:rounded-[3rem] border border-slate-100 shadow-sm">
                     <div className="flex items-center gap-4 border-b border-slate-50 pb-4 mb-6">
                       <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
                         <Briefcase size={20} />
@@ -505,7 +526,7 @@ const EmployeeList: React.FC<EmployeeListProps> = ({
 
                   {/* CERTIFICATIONS & FORMATIONS */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8">
-                    <div className="bg-white p-6 sm:p-10 rounded-2xl sm:rounded-[3rem] border border-slate-100 shadow-sm space-y-6">
+                    <div className="bg-white p-5 sm:p-10 rounded-3xl sm:rounded-[3rem] border border-slate-100 shadow-sm space-y-6">
                       <div className="flex items-center justify-between border-b border-slate-50 pb-4">
                          <h3 className="text-[10px] sm:text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
                            <ShieldCheck size={18} className="text-red-500" /> Légaux
@@ -558,7 +579,7 @@ const EmployeeList: React.FC<EmployeeListProps> = ({
                       </div>
                     </div>
 
-                    <div className="bg-white p-6 sm:p-10 rounded-2xl sm:rounded-[3rem] border border-slate-100 shadow-sm space-y-6">
+                    <div className="bg-white p-5 sm:p-10 rounded-3xl sm:rounded-[3rem] border border-slate-100 shadow-sm space-y-6">
                       <div className="flex items-center justify-between border-b border-slate-50 pb-4">
                          <h3 className="text-[10px] sm:text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
                            <GraduationCap size={18} className="text-[#264f36]" /> McDo
@@ -579,7 +600,7 @@ const EmployeeList: React.FC<EmployeeListProps> = ({
                   </div>
 
                   {/* POLYVALENCE SOC */}
-                  <div className="bg-white p-6 sm:p-10 rounded-2xl sm:rounded-[3rem] border border-slate-100 shadow-sm space-y-8">
+                  <div className="bg-white p-5 sm:p-10 rounded-3xl sm:rounded-[3rem] border border-slate-100 shadow-sm space-y-8">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-50 pb-6">
                        <h3 className="text-[10px] sm:text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
                          <FileText size={18} className="text-emerald-600" /> Polyvalence SOC

@@ -133,30 +133,64 @@ const App: React.FC = () => {
   };
 
   const handleUpdateEmployee = async (updatedEmp: Employee) => {
+    const originalEmp = employees.find(e => e.id === updatedEmp.id);
+    if (!originalEmp) return;
+
+    // Optimistic update
     setEmployees(prev => prev.map(e => e.id === updatedEmp.id ? updatedEmp : e));
-    await apiService.saveEmployees([updatedEmp]);
+    
+    try {
+      await apiService.saveEmployees([updatedEmp]);
+    } catch (error) {
+      console.error("Update employee error:", error);
+      // Revert on error
+      setEmployees(prev => prev.map(e => e.id === updatedEmp.id ? originalEmp : e));
+      alert("Erreur lors de la sauvegarde des modifications.");
+    }
   };
 
   const handleArchiveEmployee = async (id: string, reason: string) => {
     const emp = employees.find(e => e.id === id);
     if (!emp) return;
+    
+    // Optimistic update
     const archivedEmp = { ...emp, isArchived: true, isDeleted: false, archivedDate: new Date().toLocaleDateString('fr-FR'), archivedReason: reason };
-    await apiService.saveEmployees([archivedEmp]);
     setEmployees(prev => prev.filter(e => e.id !== id));
     setArchivedEmployees(prev => [archivedEmp, ...prev]);
     setSelectedEmployeeId(null);
-    addActivityLog('Archivage', `${emp.name} archivé.`, 'EQUIPE');
+    
+    try {
+      await apiService.saveEmployees([archivedEmp]);
+      addActivityLog('Archivage', `${emp.name} archivé.`, 'EQUIPE');
+    } catch (error) {
+      console.error("Archive error:", error);
+      // Revert on error
+      setEmployees(prev => [emp, ...prev]);
+      setArchivedEmployees(prev => prev.filter(e => e.id !== id));
+      alert("Erreur lors de l'archivage. Le dossier a été restauré.");
+    }
   };
 
   const handleDeleteEmployee = async (id: string) => {
     const emp = employees.find(e => e.id === id);
     if (!emp) return;
+    
+    // Optimistic update
     const deletedEmp = { ...emp, isDeleted: true, isArchived: false, deletedDate: new Date().toLocaleDateString('fr-FR') };
-    await apiService.saveEmployees([deletedEmp]);
     setEmployees(prev => prev.filter(e => e.id !== id));
     setTrashEmployees(prev => [deletedEmp, ...prev]);
     setSelectedEmployeeId(null);
-    addActivityLog('Suppression', `${emp.name} mis à la corbeille.`, 'EQUIPE');
+    
+    try {
+      await apiService.saveEmployees([deletedEmp]);
+      addActivityLog('Suppression', `${emp.name} mis à la corbeille.`, 'EQUIPE');
+    } catch (error) {
+      console.error("Delete error:", error);
+      // Revert on error
+      setEmployees(prev => [emp, ...prev]);
+      setTrashEmployees(prev => prev.filter(e => e.id !== id));
+      alert("Erreur lors de la suppression. Le dossier a été restauré.");
+    }
   };
 
   const handleRestoreEmployee = async (id: string) => {
@@ -184,11 +218,103 @@ const App: React.FC = () => {
   const handleRestoreFromArchive = async (id: string) => {
     const emp = archivedEmployees.find(e => e.id === id);
     if (!emp) return;
+    
+    // Optimistic update
     const restoredEmp = { ...emp, isArchived: false, archivedDate: undefined };
-    await apiService.saveEmployees([restoredEmp]);
     setArchivedEmployees(prev => prev.filter(e => e.id !== id));
     setEmployees(prev => [restoredEmp, ...prev]);
-    addActivityLog('Réintégration', `${emp.name} réintégré.`, 'EQUIPE');
+    
+    try {
+      await apiService.saveEmployees([restoredEmp]);
+      addActivityLog('Réintégration', `${emp.name} réintégré.`, 'EQUIPE');
+    } catch (error) {
+      console.error("Restore from archive error:", error);
+      // Revert on error
+      setArchivedEmployees(prev => [emp, ...prev]);
+      setEmployees(prev => prev.filter(e => e.id !== id));
+      alert("Erreur lors de la réintégration. Le dossier est resté dans les archives.");
+    }
+  };
+
+  const handleDeleteFromArchive = async (id: string) => {
+    const emp = archivedEmployees.find(e => e.id === id);
+    if (!emp) return;
+    
+    // Optimistic update
+    const deletedEmp = { ...emp, isDeleted: true, isArchived: false, deletedDate: new Date().toLocaleDateString('fr-FR') };
+    setArchivedEmployees(prev => prev.filter(e => e.id !== id));
+    setTrashEmployees(prev => [deletedEmp, ...prev]);
+    
+    try {
+      await apiService.saveEmployees([deletedEmp]);
+      addActivityLog('Suppression Archive', `${emp.name} mis à la corbeille depuis les archives.`, 'EQUIPE');
+    } catch (error) {
+      console.error("Delete from archive error:", error);
+      // Revert on error
+      setArchivedEmployees(prev => [emp, ...prev]);
+      setTrashEmployees(prev => prev.filter(e => e.id !== id));
+      alert("Erreur lors de la suppression de l'archive. Le dossier a été restauré.");
+    }
+  };
+
+  const handleUpdateArchiveReason = async (id: string, reason: string) => {
+    const emp = archivedEmployees.find(e => e.id === id);
+    if (!emp) return;
+    
+    const updated = { ...emp, archivedReason: reason };
+    // Optimistic update
+    setArchivedEmployees(prev => prev.map(e => e.id === id ? updated : e));
+    
+    try {
+      await apiService.saveEmployees([updated]);
+    } catch (error) {
+      console.error("Update archive reason error:", error);
+      // Revert on error
+      setArchivedEmployees(prev => prev.map(e => e.id === id ? emp : e));
+      alert("Erreur lors de la mise à jour du motif.");
+    }
+  };
+
+  const handleUpdateSkills = async (newSkills: string[]) => {
+    setAvailableSkills(newSkills);
+    try {
+      await apiService.saveSettings('mcfo_skills', newSkills);
+    } catch (e) {
+      console.error("Error saving skills:", e);
+    }
+  };
+
+  const handleUpdateCertifications = async (newCerts: GlobalCertConfig[]) => {
+    setAvailableCertifications(newCerts);
+    try {
+      await apiService.saveSettings('mcfo_certs', newCerts);
+    } catch (e) {
+      console.error("Error saving certs:", e);
+    }
+  };
+
+  const handleUpdateContracts = async (newContracts: ContractConfig[]) => {
+    setAvailableContracts(newContracts);
+    try {
+      await apiService.saveSettings('mcfo_contracts', newContracts);
+    } catch (e) {
+      console.error("Error saving contracts:", e);
+    }
+  };
+
+  const handleUpdateUserProfile = async (data: { firstName: string; lastName: string }) => {
+    if (!user) return;
+    const updatedUser = { ...user, firstName: data.firstName, lastName: data.lastName };
+    setUser(updatedUser);
+    try {
+      await supabase.from('profiles').update({
+        first_name: data.firstName,
+        last_name: data.lastName
+      }).eq('id', user.id);
+      addActivityLog('Profil', "Mise à jour du profil utilisateur.", 'SYSTEM');
+    } catch (e) {
+      console.error("Error updating profile:", e);
+    }
   };
 
   const handleLogout = async () => {
@@ -290,10 +416,7 @@ const App: React.FC = () => {
       case 'logs':
         return <ActivityFeed logs={activityLogs} />;
       case 'archive':
-        return <ArchiveList archivedEmployees={archivedEmployees} onRestore={handleRestoreFromArchive} onUpdateReason={(id, r) => {
-          const emp = archivedEmployees.find(e => e.id === id);
-          if (emp) apiService.saveEmployees([{...emp, archivedReason: r}]);
-        }} />;
+        return <ArchiveList archivedEmployees={archivedEmployees} onRestore={handleRestoreFromArchive} onDelete={handleDeleteFromArchive} onUpdateReason={handleUpdateArchiveReason} />;
       default:
         return null;
     }
@@ -308,7 +431,19 @@ const App: React.FC = () => {
           {renderModuleContent()}
         </Layout>
       )}
-      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} user={user} onUpdateUser={() => {}} skills={availableSkills} setSkills={setAvailableSkills} certifications={availableCertifications} setCertifications={setAvailableCertifications} contracts={availableContracts} setContracts={setAvailableContracts} showReferentials={selectedModule === 'training'} />
+      <SettingsModal 
+        isOpen={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)} 
+        user={user} 
+        onUpdateUser={handleUpdateUserProfile} 
+        skills={availableSkills} 
+        setSkills={handleUpdateSkills} 
+        certifications={availableCertifications} 
+        setCertifications={handleUpdateCertifications} 
+        contracts={availableContracts} 
+        setContracts={handleUpdateContracts} 
+        showReferentials={selectedModule === 'training'} 
+      />
       <SupportModal isOpen={isSupportOpen} onClose={() => setIsSupportOpen(false)} user={user} />
     </>
   );

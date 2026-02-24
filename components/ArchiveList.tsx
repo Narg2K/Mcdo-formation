@@ -1,22 +1,24 @@
 
 import React, { useState } from 'react';
-import { Archive, Search, RotateCcw, FileText, Info, X, ArrowLeft, Eye, PenTool, Calendar, UserCircle } from 'lucide-react';
+import { Archive, Search, RotateCcw, FileText, Info, X, ArrowLeft, Eye, PenTool, Calendar, UserCircle, Trash2, User } from 'lucide-react';
 import { Employee, Role } from '../types';
-import { ROLE_COLOR_CONFIG } from './EmployeeList';
+import { ROLE_COLOR_CONFIG, ROLE_ICON_CONFIG } from './EmployeeList';
 
 interface ArchiveListProps {
   archivedEmployees: Employee[];
   onRestore: (id: string) => void;
+  onDelete: (id: string) => void;
   onUpdateReason: (id: string, reason: string) => void;
   onBack?: () => void;
 }
 
-const ArchiveList: React.FC<ArchiveListProps> = ({ archivedEmployees, onRestore, onUpdateReason, onBack }) => {
+const ArchiveList: React.FC<ArchiveListProps> = ({ archivedEmployees, onRestore, onDelete, onUpdateReason, onBack }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'valid' | 'pending'>('valid');
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [showCompletionModal, setShowCompletionModal] = useState<Employee | null>(null);
   const [completionReason, setCompletionReason] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
 
   const filtered = archivedEmployees.filter(emp => 
     emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -50,8 +52,14 @@ const ArchiveList: React.FC<ArchiveListProps> = ({ archivedEmployees, onRestore,
                   <X size={20} />
                 </button>
                 <div className="flex items-center gap-5">
-                  <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center font-black text-2xl border border-white/20">
+                  <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center font-black text-2xl border border-white/20 relative">
                     {selectedEmployee.name[0]}
+                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-white text-slate-900 rounded-lg flex items-center justify-center shadow-lg">
+                      {(() => {
+                        const Icon = ROLE_ICON_CONFIG[selectedEmployee.role] || User;
+                        return <Icon size={12} />;
+                      })()}
+                    </div>
                   </div>
                   <div>
                     <h2 className="text-2xl font-black uppercase tracking-tighter">{selectedEmployee.name}</h2>
@@ -76,9 +84,19 @@ const ArchiveList: React.FC<ArchiveListProps> = ({ archivedEmployees, onRestore,
                      "{selectedEmployee.archivedReason || 'Aucun motif renseigné.'}"
                    </div>
                 </div>
-                <button onClick={() => { onRestore(selectedEmployee.id); setSelectedEmployee(null); }} className="w-full py-4 bg-[#264f36] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center justify-center gap-3">
-                   <RotateCcw size={18} /> Réintégrer dans l'équipe
-                </button>
+                <div className="flex gap-3">
+                  <button onClick={() => { onRestore(selectedEmployee.id); setSelectedEmployee(null); }} className="flex-1 py-4 bg-[#264f36] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center justify-center gap-3">
+                     <RotateCcw size={18} /> Réintégrer
+                  </button>
+                  <button 
+                    onClick={() => { 
+                      setShowDeleteConfirm(selectedEmployee.id);
+                    }} 
+                    className="flex-1 py-4 bg-red-50 text-red-600 border border-red-100 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-3 hover:bg-red-600 hover:text-white transition-all"
+                  >
+                     <Trash2 size={18} /> Supprimer
+                  </button>
+                </div>
              </div>
           </div>
         </div>
@@ -153,12 +171,13 @@ const ArchiveList: React.FC<ArchiveListProps> = ({ archivedEmployees, onRestore,
             {displayList.length > 0 ? displayList.map(emp => {
               const rStyle = getRoleStyle(emp.role as Role);
               const isPending = emp.archivedReason?.includes('[AUTO]');
+              const RoleIcon = ROLE_ICON_CONFIG[emp.role] || User;
               return (
                 <tr key={emp.id} className="group hover:bg-slate-50/50 transition-colors">
                   <td className="px-4 sm:px-8 py-5">
                     <div className="flex items-center gap-4">
-                      <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-black text-sm uppercase border shadow-sm shrink-0 ${rStyle.bg} ${rStyle.text} ${rStyle.border}`}>
-                        {emp.name[0]}
+                      <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 transition-all border shadow-sm ${rStyle.bg} ${rStyle.text} ${rStyle.border}`}>
+                        <RoleIcon size={20} />
                       </div>
                       <div className="truncate">
                         <p className="text-sm font-black text-slate-900 uppercase tracking-tight truncate leading-tight">{emp.name}</p>
@@ -184,20 +203,38 @@ const ArchiveList: React.FC<ArchiveListProps> = ({ archivedEmployees, onRestore,
                            <Eye size={14} /><span className="hidden sm:inline"> Détails</span>
                         </button>
                         {isPending ? (
-                          <button 
-                            onClick={() => setShowCompletionModal(emp)}
-                            className="flex items-center gap-2 px-3 sm:px-5 py-2 sm:py-2.5 bg-red-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-red-700 transition-all shadow-md animate-pulse"
-                          >
-                             <PenTool size={14} /><span className="hidden sm:inline"> Valider</span>
-                          </button>
+                          <div className="flex gap-2">
+                            <button 
+                              onClick={() => setShowCompletionModal(emp)}
+                              className="flex items-center gap-2 px-3 sm:px-5 py-2 sm:py-2.5 bg-red-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-red-700 transition-all shadow-md animate-pulse"
+                            >
+                               <PenTool size={14} /><span className="hidden sm:inline"> Valider</span>
+                            </button>
+                            <button 
+                              onClick={() => setShowDeleteConfirm(emp.id)}
+                              className="p-2.5 bg-red-50 text-red-600 border border-red-100 rounded-xl hover:bg-red-600 hover:text-white transition-all shadow-sm"
+                              title="Supprimer"
+                            >
+                               <Trash2 size={18} />
+                            </button>
+                          </div>
                         ) : (
-                          <button 
-                            onClick={() => onRestore(emp.id)}
-                            className="p-2.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
-                            title="Réintégrer"
-                          >
-                             <RotateCcw size={18} />
-                          </button>
+                          <div className="flex gap-2">
+                            <button 
+                              onClick={() => onRestore(emp.id)}
+                              className="p-2.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
+                              title="Réintégrer"
+                            >
+                               <RotateCcw size={18} />
+                            </button>
+                            <button 
+                              onClick={() => setShowDeleteConfirm(emp.id)}
+                              className="p-2.5 bg-red-50 text-red-600 border border-red-100 rounded-xl hover:bg-red-600 hover:text-white transition-all shadow-sm"
+                              title="Supprimer"
+                            >
+                               <Trash2 size={18} />
+                            </button>
+                          </div>
                         )}
                      </div>
                   </td>
@@ -216,6 +253,21 @@ const ArchiveList: React.FC<ArchiveListProps> = ({ archivedEmployees, onRestore,
           </tbody>
         </table>
       </div>
+      {/* Modal: Confirmation Suppression */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[1300] flex items-center justify-center p-4">
+           <div className="absolute inset-0 bg-red-950/60 backdrop-blur-md" onClick={() => setShowDeleteConfirm(null)} />
+           <div className="relative bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-10 text-center space-y-8 animate-in zoom-in-95">
+              <Trash2 size={40} className="mx-auto text-red-600" />
+              <h3 className="text-xl font-black uppercase text-slate-900 tracking-tighter">Mettre à la corbeille ?</h3>
+              <p className="text-xs text-slate-500 font-medium">Le dossier sera déplacé vers la corbeille opérationnelle.</p>
+              <div className="flex gap-4">
+                <button onClick={() => setShowDeleteConfirm(null)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-[10px] tracking-widest">Annuler</button>
+                <button onClick={() => { onDelete(showDeleteConfirm); setShowDeleteConfirm(null); setSelectedEmployee(null); }} className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl">Confirmer</button>
+              </div>
+           </div>
+        </div>
+      )}
     </div>
   );
 };

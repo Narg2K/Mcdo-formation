@@ -49,33 +49,24 @@ const ReportsPortal: React.FC<ReportsPortalProps> = ({ type, employees, availabl
   const [isGenerating, setIsGenerating] = useState(false);
   const today = new Date().toLocaleDateString('fr-FR');
 
+  const filteredEmployees = employees.filter(emp => emp.role === Role.EQUIPPIER);
+
   const handleDownloadPDF = async () => {
     setIsGenerating(true);
-    const element = document.getElementById('report-document-a4');
     
     // @ts-ignore
     const jspdfLib = window.jspdf;
     // @ts-ignore
     const html2canvasLib = window.html2canvas;
 
-    if (!element || !jspdfLib || !html2canvasLib) {
-      console.error("Librairies PDF manquantes ou élément non trouvé");
-      alert("Erreur technique : Librairies de génération non prêtes. Veuillez réessayer ou utiliser 'Imprimer'.");
+    if (!jspdfLib || !html2canvasLib) {
+      console.error("Librairies PDF manquantes");
+      alert("Erreur technique : Librairies de génération non prêtes.");
       setIsGenerating(false);
       return;
     }
 
     try {
-      const canvas = await html2canvasLib(element, {
-        scale: 2.5, // Réduction légère pour éviter les erreurs de buffer sur certains navigateurs
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-        windowWidth: 1200 // Augmentation pour assurer une meilleure capture des colonnes
-      });
-
-      const imgData = canvas.toDataURL('image/jpeg', 0.98);
-      
       const pdf = new jspdfLib.jsPDF({
         orientation: 'portrait',
         unit: 'mm',
@@ -83,18 +74,130 @@ const ReportsPortal: React.FC<ReportsPortalProps> = ({ type, employees, availabl
       });
 
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      const margin = 10;
-      const displayWidth = pdfWidth - (margin * 2);
+      const pdfHeight = pdf.internal.pageSize.getHeight();
       
-      const imgProps = pdf.getImageProperties(imgData);
-      const ratio = imgProps.width / imgProps.height;
-      const displayHeight = displayWidth / ratio;
+      // On divise les employés par groupes pour tenir sur des pages A4
+      const itemsPerPage = 45;
+      const chunks = [];
+      for (let i = 0; i < filteredEmployees.length; i += itemsPerPage) {
+        chunks.push(filteredEmployees.slice(i, i + itemsPerPage));
+      }
 
-      pdf.addImage(imgData, 'JPEG', margin, margin, displayWidth, displayHeight);
+      // Si aucun employé, on génère quand même une page vide ou avec l'entête
+      if (chunks.length === 0) chunks.push([]);
+
+      for (let i = 0; i < chunks.length; i++) {
+        if (i > 0) pdf.addPage();
+        
+        // On crée un conteneur temporaire pour la capture de la page i
+        const tempContainer = document.createElement('div');
+        tempContainer.style.position = 'absolute';
+        tempContainer.style.left = '-9999px';
+        tempContainer.style.top = '0';
+        tempContainer.style.width = '210mm';
+        tempContainer.style.backgroundColor = '#ffffff';
+        document.body.appendChild(tempContainer);
+
+        // On clone l'élément de base mais on ne garde que les employés du chunk
+        const baseElement = document.getElementById('report-document-a4');
+        if (!baseElement) continue;
+        
+        const clone = baseElement.cloneNode(true) as HTMLElement;
+        clone.style.height = '297mm';
+        clone.style.width = '210mm';
+        clone.style.minHeight = '297mm';
+        clone.style.maxHeight = '297mm';
+        clone.style.margin = '0';
+        clone.style.padding = '10mm';
+        clone.style.boxSizing = 'border-box';
+        
+        tempContainer.appendChild(clone);
+
+        // On remplace le tbody par celui du chunk
+        const tbody = clone.querySelector('tbody');
+        if (tbody) {
+          tbody.innerHTML = '';
+          chunks[i].forEach(emp => {
+            const row = document.createElement('tr');
+            row.style.height = '18px';
+            row.className = 'page-break-inside-avoid';
+            
+            // Construction manuelle de la ligne pour éviter les problèmes de React/DOM
+            const roleColor = ROLE_INDICATORS[emp.role] || '#64748b';
+            
+            let cellsHtml = `
+              <td style="background-color: white; border: none; padding: 0; overflow: hidden; vertical-align: middle;">
+                <div style="display: flex; align-items: center; height: 100%; padding-left: 4px; padding-right: 2px; gap: 4px;">
+                   <div style="width: 6px; height: 6px; border-radius: 1px; flex-shrink: 0; background-color: ${roleColor};"></div>
+                   <span style="font-size: 7px; font-weight: 800; text-transform: uppercase; color: #0f172a; line-height: 1; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${emp.name}</span>
+                </div>
+              </td>
+            `;
+
+            if (type === 'soc') {
+              availableSkills.forEach(skillName => {
+                const skill = emp.skills.find(s => s.name.toUpperCase() === skillName.toUpperCase());
+                const level = skill?.level || 'Non Formé';
+                const styles = LEVEL_COLORS[level];
+                const char = level === 'Non Formé' ? '-' : level[0].toUpperCase();
+                cellsHtml += `
+                  <td style="border: none; text-align: center; padding: 0; vertical-align: middle; background-color: ${styles.bg}; width: 16px;">
+                    <span style="font-size: 5px; font-weight: 900; line-height: 1; display: block; text-transform: uppercase; color: ${styles.text};">
+                      ${char}
+                    </span>
+                  </td>
+                `;
+              });
+            } else {
+              availableCertifications.filter(c => c.isMandatory).forEach(mandatoryCert => {
+                const empCert = emp.certifications.find(c => c.name === mandatoryCert.name);
+                const status = empCert?.status || 'Manquant';
+                const styles = CERT_COLORS[status];
+                cellsHtml += `
+                  <td style="border: none; text-align: center; padding: 0; vertical-align: middle; background-color: ${styles.bg}; width: 22px;">
+                    <span style="font-size: 5px; font-weight: 900; text-transform: uppercase; line-height: 1; color: ${styles.text};">
+                      ${status === 'Complété' ? 'V' : '-'}
+                    </span>
+                  </td>
+                `;
+              });
+            }
+            row.innerHTML = cellsHtml;
+            tbody.appendChild(row);
+          });
+        }
+
+        // Ajout du numéro de page en bas
+        const footer = clone.querySelector('.mt-8');
+        if (footer) {
+          const pageNum = document.createElement('div');
+          pageNum.style.fontSize = '8px';
+          pageNum.style.fontWeight = '900';
+          pageNum.style.color = '#cbd5e1';
+          pageNum.style.textTransform = 'uppercase';
+          pageNum.innerText = `Page ${i + 1} / ${chunks.length}`;
+          footer.appendChild(pageNum);
+        }
+
+        const canvas = await html2canvasLib(clone, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          logging: false,
+          width: 794, // 210mm at 96dpi
+          height: 1123 // 297mm at 96dpi
+        });
+
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+        
+        document.body.removeChild(tempContainer);
+      }
+
       pdf.save(`MCFO_${type.toUpperCase()}_${today.replace(/\//g, '-')}.pdf`);
     } catch (err) {
       console.error("Erreur génération PDF:", err);
-      alert("Une erreur est survenue lors de la création du PDF. L'option 'Imprimer' reste disponible.");
+      alert("Une erreur est survenue lors de la création du PDF.");
     } finally {
       setIsGenerating(false);
     }
@@ -148,43 +251,36 @@ const ReportsPortal: React.FC<ReportsPortalProps> = ({ type, employees, availabl
           style={{ 
             width: '210mm', 
             minHeight: '297mm',
-            padding: '15mm 20mm',
+            padding: '10mm 10mm',
             boxSizing: 'border-box',
             display: 'flex',
             flexDirection: 'column',
             backgroundColor: '#ffffff'
           }}
         >
-          <div className="flex justify-between items-end mb-10 border-b-2 border-slate-900 pb-6 w-full">
+          <div className="flex justify-between items-center mb-10 border-b-2 border-slate-900 pb-6 w-full">
             <div className="flex items-center gap-4">
                <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/McDonald%27s_Golden_Arches.svg" alt="M" className="w-12 h-12 object-contain" />
-               <div className="flex flex-col">
-                  <h1 className="text-slate-900 text-xl font-black uppercase tracking-tighter leading-none mb-1">McFormation</h1>
-                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] italic opacity-80">Store Operations Report #0437</p>
-               </div>
             </div>
-            <div className="text-right flex flex-col items-end">
-              <h2 className="text-base font-black uppercase text-slate-900 tracking-tight leading-none mb-2">
-                {type === 'soc' ? 'Matrice de Polyvalence' : 'Registre des Certificats'}
-              </h2>
-              <div className="bg-slate-900 text-white px-2 py-1 rounded-md">
-                <p className="text-[8px] font-normal uppercase tracking-widest leading-none">Émis le {today}</p>
+            <div className="text-right">
+              <div className="bg-slate-900 text-white px-3 py-1.5 rounded-md">
+                <p className="text-[10px] font-black uppercase tracking-widest leading-none">{today}</p>
               </div>
             </div>
           </div>
 
           <div className="w-full flex-1">
-            <table className="w-full border-collapse border border-slate-300 table-fixed">
+            <table className="w-full border-collapse table-fixed">
               <thead>
-                <tr className="h-32">
-                  <th className="bg-slate-900 text-white p-3 text-[9px] font-black uppercase border border-slate-900 text-left w-[140px] align-middle">
+                <tr className="h-16">
+                  <th className="bg-slate-900 text-white p-2 text-[8px] font-black uppercase border-none text-left w-[120px] align-middle">
                     Employé
                   </th>
                   {type === 'soc' ? (
                     availableSkills.map(skill => (
-                      <th key={skill} className="bg-slate-50 border border-slate-300 p-0 relative overflow-hidden">
+                      <th key={skill} className="bg-slate-50 border-none p-0 relative overflow-hidden">
                         <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="transform -rotate-90 whitespace-nowrap text-[7px] font-black uppercase tracking-tighter text-slate-800">
+                          <span className="transform -rotate-90 whitespace-nowrap text-[6px] font-black uppercase tracking-tighter text-slate-800">
                             {formatHeaderName(skill)}
                           </span>
                         </div>
@@ -192,7 +288,7 @@ const ReportsPortal: React.FC<ReportsPortalProps> = ({ type, employees, availabl
                     ))
                   ) : (
                     availableCertifications.filter(c => c.isMandatory).map(cert => (
-                      <th key={cert.name} className="bg-slate-50 border border-slate-300 p-1 text-[7px] font-black uppercase leading-tight text-slate-800 text-center align-middle">
+                      <th key={cert.name} className="bg-slate-50 border-none p-1 text-[6px] font-black uppercase leading-tight text-slate-800 text-center align-middle">
                         {cert.name}
                       </th>
                     ))
@@ -200,15 +296,12 @@ const ReportsPortal: React.FC<ReportsPortalProps> = ({ type, employees, availabl
                 </tr>
               </thead>
               <tbody>
-                {employees.map(emp => (
-                  <tr key={emp.id} className="h-9 page-break-inside-avoid">
-                    <td className="bg-white border border-slate-300 p-0 overflow-hidden align-middle">
-                      <div className="flex items-center h-full">
-                         <div className="w-1.5 h-full shrink-0" style={{ backgroundColor: ROLE_INDICATORS[emp.role] || '#64748b' }}></div>
-                         <div className="flex-1 pl-3 pr-2 flex flex-col justify-center py-1">
-                            <span className="text-[9px] font-black uppercase text-slate-900 leading-[1.1] mb-0.5 block truncate">{emp.name}</span>
-                            <span className="text-[6px] font-bold uppercase text-slate-400 leading-none tracking-widest block truncate">{emp.role}</span>
-                         </div>
+                {filteredEmployees.map(emp => (
+                  <tr key={emp.id} className="h-5 page-break-inside-avoid">
+                    <td className="bg-white border-none p-0 overflow-hidden align-middle">
+                      <div className="flex items-center h-full pl-2 pr-1 gap-1.5">
+                         <div className="w-1.5 h-1.5 rounded-sm shrink-0" style={{ backgroundColor: ROLE_INDICATORS[emp.role] || '#64748b' }}></div>
+                         <span className="text-[7px] font-black uppercase text-slate-900 leading-none block truncate">{emp.name}</span>
                       </div>
                     </td>
                     {type === 'soc' ? (
@@ -218,8 +311,8 @@ const ReportsPortal: React.FC<ReportsPortalProps> = ({ type, employees, availabl
                         const styles = LEVEL_COLORS[level];
                         const char = level === 'Non Formé' ? '-' : level[0].toUpperCase();
                         return (
-                          <td key={skillName} className="border border-slate-300 text-center p-0 align-middle" style={{ backgroundColor: styles.bg }}>
-                            <span className="text-[7px] font-black leading-none block uppercase" style={{ color: styles.text }}>
+                          <td key={skillName} className="border-none text-center p-0 align-middle" style={{ backgroundColor: styles.bg }}>
+                            <span className="text-[5px] font-black leading-none block uppercase" style={{ color: styles.text }}>
                               {char}
                             </span>
                           </td>
@@ -231,8 +324,8 @@ const ReportsPortal: React.FC<ReportsPortalProps> = ({ type, employees, availabl
                         const status = empCert?.status || 'Manquant';
                         const styles = CERT_COLORS[status];
                         return (
-                          <td key={mandatoryCert.name} className="border border-slate-300 text-center p-0 align-middle" style={{ backgroundColor: styles.bg }}>
-                            <span className="text-[7px] font-black uppercase leading-none" style={{ color: styles.text }}>
+                          <td key={mandatoryCert.name} className="border-none text-center p-0 align-middle" style={{ backgroundColor: styles.bg }}>
+                            <span className="text-[5px] font-black uppercase leading-none" style={{ color: styles.text }}>
                               {status === 'Complété' ? 'V' : '-'}
                             </span>
                           </td>
@@ -245,17 +338,12 @@ const ReportsPortal: React.FC<ReportsPortalProps> = ({ type, employees, availabl
             </table>
           </div>
           
-          <div className="mt-8 pt-8 border-t border-slate-100 flex justify-between items-start">
-            <div className="grid grid-cols-3 gap-x-8 gap-y-2">
-                {Object.entries(LEVEL_COLORS).map(([lvl, styles]) => (
-                  <div key={lvl} className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded" style={{ backgroundColor: styles.bg, border: '1px solid #e2e8f0' }}></div>
-                    <span className="text-[7px] font-black uppercase text-slate-500">{lvl}</span>
-                  </div>
-                ))}
+          <div className="mt-auto pt-8 border-t border-slate-100 flex justify-between items-center">
+            <div className="flex items-center gap-3">
+               <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/McDonald%27s_Golden_Arches.svg" alt="M" className="w-6 h-6 object-contain" />
             </div>
             <div className="text-right">
-              <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Document généré par McFormation Console</p>
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{today}</p>
             </div>
           </div>
         </div>

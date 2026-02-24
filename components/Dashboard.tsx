@@ -13,7 +13,9 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = ({ employees, availableCertifications, availableSkills, onNavigateToEmployee }) => {
   const mandatoryConfigs = availableCertifications.filter(c => c.isMandatory);
   
-  const alertsByEmployee = employees.reduce((acc, emp) => {
+  const alertsByEmployee = employees
+    .filter(emp => emp.role === Role.TRAINER || emp.role === Role.EQUIPPIER)
+    .reduce((acc, emp) => {
     const empAlerts = [];
     for (const globalCert of mandatoryConfigs) {
       const empCert = emp.certifications.find(c => c.name === globalCert.name);
@@ -31,11 +33,13 @@ const Dashboard: React.FC<DashboardProps> = ({ employees, availableCertification
     return acc;
   }, [] as any[]);
 
-  const completedCerts = employees.reduce((acc, emp) => {
+  const targetEmployees = employees.filter(emp => emp.role === Role.TRAINER || emp.role === Role.EQUIPPIER);
+
+  const completedCerts = targetEmployees.reduce((acc, emp) => {
     return acc + mandatoryConfigs.filter(mc => emp.certifications.some(c => c.name === mc.name && c.status === 'Complété')).length;
   }, 0);
   
-  const totalSlots = employees.length * mandatoryConfigs.length;
+  const totalSlots = targetEmployees.length * mandatoryConfigs.length;
   const certCompliance = totalSlots > 0 ? Math.round((completedCerts / totalSlots) * 100) : 100;
 
   const StatCard = ({ icon, label, value, color }: { icon: any, label: string, value: string | number, color: string }) => (
@@ -77,20 +81,53 @@ const Dashboard: React.FC<DashboardProps> = ({ employees, availableCertification
             <h2 className="text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-3 mb-6">
               <BellRing className="text-red-500" size={20} /> Alertes prioritaires ({alertsByEmployee.length})
             </h2>
-            <div className="space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar pr-1">
+            <div className="space-y-3 max-h-[500px] overflow-y-auto custom-scrollbar pr-1">
               {alertsByEmployee.map((emp) => (
-                <button key={emp.id} onClick={() => onNavigateToEmployee(emp.id)} className="w-full text-left p-4 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between hover:bg-red-50 transition-all">
-                  <div className="flex items-center gap-3 truncate">
-                    <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center font-black text-xs text-slate-400">{emp.name[0]}</div>
-                    <div className="truncate">
-                      <p className="text-[10px] font-black uppercase text-slate-900 truncate">{emp.name}</p>
-                      <p className="text-[8px] font-bold text-slate-400 uppercase">{emp.alerts.length} alerte(s)</p>
+                <button 
+                  key={emp.id} 
+                  onClick={() => onNavigateToEmployee(emp.id)} 
+                  className="w-full text-left p-5 bg-white border border-slate-100 rounded-[1.5rem] flex flex-col gap-3 hover:border-red-200 hover:bg-red-50/30 transition-all shadow-sm group"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center font-black text-sm text-white shadow-lg group-hover:scale-110 transition-transform">
+                        {emp.name[0]}
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-black uppercase text-slate-900 tracking-tight">{emp.name}</p>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{emp.role}</p>
+                      </div>
                     </div>
+                    <ChevronRight size={16} className="text-slate-300 group-hover:text-red-500 transition-colors" />
                   </div>
-                  <ChevronRight size={14} className="text-slate-300" />
+                  
+                  <div className="flex flex-wrap gap-2">
+                    {emp.alerts.map((alert: any, idx: number) => (
+                      <div 
+                        key={idx} 
+                        className={`px-3 py-1.5 rounded-lg flex items-center gap-2 border ${
+                          alert.type === 'EXPIRÉ' || alert.type === 'MANQUANT' 
+                            ? 'bg-red-50 border-red-100 text-red-600' 
+                            : 'bg-amber-50 border-amber-100 text-amber-600'
+                        }`}
+                      >
+                        {alert.type === 'EXPIRÉ' ? <AlertOctagon size={10} /> : <FileWarning size={10} />}
+                        <span className="text-[9px] font-black uppercase tracking-tight">
+                          {alert.certName}: {alert.type}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </button>
               ))}
-              {alertsByEmployee.length === 0 && <p className="text-center py-10 text-[10px] font-black text-slate-300 uppercase">Aucune alerte</p>}
+              {alertsByEmployee.length === 0 && (
+                <div className="text-center py-16 space-y-4">
+                  <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto">
+                    <ShieldCheck size={32} className="text-emerald-500" />
+                  </div>
+                  <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Conformité 100% - Aucune alerte</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -110,8 +147,8 @@ const Dashboard: React.FC<DashboardProps> = ({ employees, availableCertification
                </thead>
                <tbody className="divide-y divide-slate-50">
                  {availableSkills.map(skill => {
-                   const trained = employees.filter(e => e.skills.some(s => s.name === skill && (s.level === 'Formé' || s.level === 'Expert'))).length;
-                   const pct = employees.length > 0 ? Math.round((trained / employees.length) * 100) : 0;
+                   const trained = targetEmployees.filter(e => e.skills.some(s => s.name === skill && (s.level === 'Formé' || s.level === 'Expert'))).length;
+                   const pct = targetEmployees.length > 0 ? Math.round((trained / targetEmployees.length) * 100) : 0;
                    return (
                      <tr key={skill}>
                        <td className="py-4 text-[10px] font-black uppercase text-slate-800">{skill}</td>

@@ -1,5 +1,5 @@
 
-import { GoogleGenAI, Type } from "https://esm.sh/@google/genai@^1.40.0";
+import { GoogleGenAI, Type } from "@google/genai";
 import { Employee, Task, Vacation, AIPlanningResponse } from "../types";
 
 export const getIntelligentAssignments = async (

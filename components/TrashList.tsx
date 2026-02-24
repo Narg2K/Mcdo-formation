@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
-import { Trash2, Search, RotateCcw, Calendar, AlertTriangle, X, ArrowLeft, Trash, Eye, Clock } from 'lucide-react';
+import { Trash2, Search, RotateCcw, Calendar, AlertTriangle, X, ArrowLeft, Trash, Eye, Clock, User } from 'lucide-react';
 import { Employee, Role } from '../types';
-import { ROLE_COLOR_CONFIG } from './EmployeeList';
+import { ROLE_COLOR_CONFIG, ROLE_ICON_CONFIG } from './EmployeeList';
 
 interface TrashListProps {
   trashEmployees: Employee[];
@@ -51,8 +51,14 @@ const TrashList: React.FC<TrashListProps> = ({ trashEmployees, onRestore, onPerm
                   <X size={20} />
                 </button>
                 <div className="flex items-center gap-5">
-                  <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center font-black text-2xl border border-white/20">
+                  <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center font-black text-2xl border border-white/20 relative">
                     {selectedEmployee.name[0]}
+                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-white text-slate-900 rounded-lg flex items-center justify-center shadow-lg">
+                      {(() => {
+                        const Icon = ROLE_ICON_CONFIG[selectedEmployee.role] || User;
+                        return <Icon size={12} />;
+                      })()}
+                    </div>
                   </div>
                   <div>
                     <h2 className="text-2xl font-black uppercase tracking-tighter">{selectedEmployee.name}</h2>
@@ -156,12 +162,13 @@ const TrashList: React.FC<TrashListProps> = ({ trashEmployees, onRestore, onPerm
             {filtered.length > 0 ? filtered.map(emp => {
               const rStyle = getRoleStyle(emp.role as Role);
               const days = calculateDaysLeft(emp.deletedDate);
+              const RoleIcon = ROLE_ICON_CONFIG[emp.role] || User;
               return (
                 <tr key={emp.id} className="group hover:bg-slate-50/50 transition-colors">
                   <td className="px-4 sm:px-8 py-5">
                     <div className="flex items-center gap-4">
-                      <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-black text-sm uppercase border shadow-sm shrink-0 ${rStyle.bg} ${rStyle.text} ${rStyle.border}`}>
-                        {emp.name[0]}
+                      <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 transition-all border shadow-sm ${rStyle.bg} ${rStyle.text} ${rStyle.border}`}>
+                        <RoleIcon size={20} />
                       </div>
                       <div className="truncate">
                         <p className="text-sm font-black text-slate-900 uppercase tracking-tight truncate leading-tight">{emp.name}</p>
